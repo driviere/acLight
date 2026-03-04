@@ -5,6 +5,10 @@ import { HomeBold, SettingsBold, DatabaseBold } from 'solar-icon-set';
 import Login from './components/auth/Login';
 import PrivateRoute from './components/auth/PrivateRoute';
 import AdminDashboard from './components/admin/AdminDashboard';
+import SalesTracker from './components/modules/SalesTracker';
+import ExpenseLogger from './components/modules/ExpenseLogger';
+import OutstandingMonitor from './components/modules/OutstandingMonitor';
+import WasteTracker from './components/modules/WasteTracker';
 import './App.css';
 
 const Navigation = () => {
@@ -42,6 +46,8 @@ const Navigation = () => {
 };
 
 const MainDashboard = () => {
+  const { isAdmin } = useAuth();
+
   const handleSeed = async () => {
     try {
       const seeded = await seedChartOfAccounts();
@@ -53,12 +59,33 @@ const MainDashboard = () => {
   };
 
   return (
-    <div className="box has-text-centered">
-      <p className="mb-4">Main Ledger Dashboard coming soon...</p>
-      <button className="button is-warning is-large" onClick={handleSeed}>
-        <span className="icon"><DatabaseBold size={16} /></span>
-        <span>[DEV] Initialize Database</span>
-      </button>
+    <div className="dashboard-container">
+      {isAdmin && (
+        <div className="has-text-right mb-4">
+          <button className="button is-warning is-small is-outlined" onClick={handleSeed}>
+            <span className="icon"><DatabaseBold size={14} /></span>
+            <span>[DEV] Init DB</span>
+          </button>
+        </div>
+      )}
+
+      <OutstandingMonitor />
+
+      <div className="columns is-desktop is-multiline mt-4">
+        <div className="column is-12-tablet is-6-desktop">
+          <SalesTracker />
+        </div>
+
+        <div className="column is-12-tablet is-6-desktop">
+          <WasteTracker />
+        </div>
+
+        {isAdmin && (
+          <div className="column is-12">
+            <ExpenseLogger />
+          </div>
+        )}
+      </div>
     </div>
   );
 };

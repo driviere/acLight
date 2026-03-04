@@ -104,14 +104,80 @@ export const createJournalEntry = async (
     return journalRef.id;
 };
 
-/**
- * Updates the payment status and outstanding cents for an existing transaction.
- * Used for AP/AR tracking.
- */
 export const updatePaymentStatus = async (journalId, newStatus, newOutstandingCents) => {
     const journalRef = doc(db, JOURNAL_COLLECTION, journalId);
     await writeBatch(db).update(journalRef, {
         status: newStatus,
         outstanding_cents: newOutstandingCents
     }).commit();
+};
+
+/**
+ * Processes a payment specifically against an existing invoice/bill.
+ * Atomically creates the payment journal entry while reducing the invoice's outstanding balance.
+ */
+export const processInvoicePayment = async (journalId, paymentCents, paymentType, metadata) => {
+    const journalRef = doc(db, JOURNAL_COLLECTION, journalId);
+    const journalSnap = await getDoc(journalRef);
+    if (!journalSnap.exists()) throw new Error("Invoice not found.");
+
+    const journalData = journalSnap.data();
+    if (journalData.outstanding_cents < paymentCents) {
+        throw new Error("Payment exceeds outstanding balance.");
+    }
+
+    const newOutstanding = journalData.outstanding_cents - paymentCents;
+    const newStatus = newOutstanding === 0 ? 'paid' : 'partial';
+
+    // Payment bounds
+    const lines = [];
+    if (paymentType === 'receive') {
+        lines.push({ account_id: '1000_cash', debit: paymentCents, credit: 0 });
+        lines.push({ account_id: '1200_ar', debit: 0, credit: paymentCents });
+    } else {
+        lines.push({ account_id: '2000_ap', debit: paymentCents, credit: 0 });
+        lines.push({ account_id: '1000_cash', debit: 0, credit: paymentCents });
+    }
+
+    const batch = writeBatch(db);
+
+    // Update the existing invoice
+    batch.update(journalRef, {
+        status: newStatus,
+        outstanding_cents: newOutstanding
+    });
+
+    // Create the payment journal entry attached to this invoice
+    const paymentRef = doc(collection(db, JOURNAL_COLLECTION));
+    batch.set(paymentRef, {
+        date: Timestamp.now(),
+        type: 'payment',
+        status: 'paid',
+        ref_no: metadata.refNo || '',
+        total_cents: paymentCents,
+        outstanding_cents: 0,
+        lines,
+        metadata: { ...metadata, related_invoice_id: journalId, payment_type: paymentType }
+    });
+
+    // Update account balances
+    for (const line of lines) {
+        const accountRef = doc(db, ACCOUNTS_COLLECTION, line.account_id);
+        const accountSnap = await getDoc(accountRef);
+        if (!accountSnap.exists()) throw new Error(`Account ${line.account_id} does not exist.`);
+
+        const accountData = accountSnap.data();
+        let currentBalance = accountData.balance || 0;
+
+        if (isDebitNormal(accountData.type)) {
+            currentBalance += line.debit;
+            currentBalance -= line.credit;
+        } else {
+            currentBalance += line.credit;
+            currentBalance -= line.debit;
+        }
+        batch.update(accountRef, { balance: currentBalance });
+    }
+
+    await batch.commit();
 };

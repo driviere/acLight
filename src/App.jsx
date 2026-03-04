@@ -9,7 +9,6 @@ import SalesTracker from './components/modules/SalesTracker';
 import ExpenseLogger from './components/modules/ExpenseLogger';
 import OutstandingMonitor from './components/modules/OutstandingMonitor';
 import OutstandingList from './components/modules/OutstandingList';
-import PaymentProcessor from './components/modules/PaymentProcessor';
 import WasteTracker from './components/modules/WasteTracker';
 import TopLevelBar from './components/modules/TopLevelBar';
 import './App.css';
@@ -26,6 +25,12 @@ const Navigation = () => {
           <Link to="/" className="button is-light">
             <span className="icon"><HomeBold size={16} /></span>
             <span>Dashboard</span>
+          </Link>
+        </div>
+        <div className="level-item">
+          <Link to="/outstanding" className="button is-info is-light">
+            <span className="icon"><DatabaseBold size={16} /></span>
+            <span>AR / AP</span>
           </Link>
         </div>
         {isAdmin && (
@@ -75,15 +80,6 @@ const MainDashboard = () => {
       {isAdmin && <TopLevelBar />}
 
       <OutstandingMonitor />
-      <OutstandingList />
-
-      {isAdmin && (
-        <div className="columns is-desktop is-multiline mt-4">
-          <div className="column is-12">
-            <PaymentProcessor />
-          </div>
-        </div>
-      )}
 
       <div className="columns is-desktop is-multiline mt-4">
         <div className="column is-12-tablet is-6-desktop">
@@ -117,6 +113,7 @@ function App() {
           <Routes>
             <Route path="/login" element={<Login />} />
             <Route path="/" element={<PrivateRoute><MainDashboard /></PrivateRoute>} />
+            <Route path="/outstanding" element={<PrivateRoute><OutstandingList /></PrivateRoute>} />
             <Route path="/admin" element={<PrivateRoute requireAdmin={true}><AdminDashboard /></PrivateRoute>} />
           </Routes>
         </div>

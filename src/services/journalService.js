@@ -1,4 +1,4 @@
-import { collection, doc, writeBatch, Timestamp, getDoc } from 'firebase/firestore';
+import { collection, doc, runTransaction, Timestamp } from 'firebase/firestore';
 import { db } from '../firebase';
 import { isBalanced } from '../utils/moneyUtils';
 
@@ -49,67 +49,78 @@ export const createJournalEntry = async (
         throw new Error("Transaction validation failed: Amounts cannot be negative.");
     }
 
-    // 2. Backend Developer Constraint: Atomic Database Transaction
-    // WriteBatch ensures that if ANY account update fails, the entire transaction is rolled back.
-    const batch = writeBatch(db);
+    // 2. Backend Developer Constraint: Atomic Database Transaction via runTransaction
+    // Transactions ensure that account balance updates are based on the latest data,
+    // preventing race conditions where simultaneous updates overwrite each other.
+    try {
+        await runTransaction(db, async (transaction) => {
+            // --- READ PHASE ---
+            // Firestore requires all reads to complete before any writes begin.
+            const accountSnaps = [];
+            for (const line of lines) {
+                if (!line.account_id) throw new Error("Missing account_id in transaction line.");
 
-    // Prepare the new journal entry
-    const journalRef = doc(collection(db, JOURNAL_COLLECTION));
-    const entryData = {
-        date: Timestamp.now(),
-        type,
-        status,
-        ref_no: refNo || '',
-        total_cents: totalCents,
-        outstanding_cents: outstandingCents,
-        lines,
-        metadata: metadata || {}
-    };
+                const accountRef = doc(db, ACCOUNTS_COLLECTION, line.account_id);
+                const snap = await transaction.get(accountRef);
 
-    batch.set(journalRef, entryData);
+                if (!snap.exists()) {
+                    throw new Error(`Account ${line.account_id} does not exist in the Chart of Accounts.`);
+                }
+                accountSnaps.push({ snap, line });
+            }
 
-    // Prepare account balance updates
-    // We must read the accounts first to know their current balances and types.
-    for (const line of lines) {
-        if (!line.account_id) throw new Error("Missing account_id in transaction line.");
+            // --- WRITE PHASE ---
+            // Prepare the new journal entry
+            const journalRef = doc(collection(db, JOURNAL_COLLECTION));
+            const entryData = {
+                date: Timestamp.now(),
+                type,
+                status,
+                ref_no: refNo || '',
+                total_cents: totalCents,
+                outstanding_cents: outstandingCents,
+                lines,
+                metadata: metadata || {}
+            };
 
-        const accountRef = doc(db, ACCOUNTS_COLLECTION, line.account_id);
-        const accountSnap = await getDoc(accountRef);
+            // 1. Write the journal entry
+            transaction.set(journalRef, entryData);
 
-        if (!accountSnap.exists()) {
-            throw new Error(`Account ${line.account_id} does not exist in the Chart of Accounts.`);
-        }
+            // 2. Write the computed account balances
+            for (const { snap, line } of accountSnaps) {
+                const accountData = snap.data();
+                let currentBalance = accountData.balance || 0;
 
-        const accountData = accountSnap.data();
-        let currentBalance = accountData.balance || 0;
+                // Calculate new balance based on Account Type normal balances
+                if (isDebitNormal(accountData.type)) {
+                    // Assets & Expenses increase with Debits, decrease with Credits
+                    currentBalance += line.debit;
+                    currentBalance -= line.credit;
+                } else {
+                    // Liabilities, Equity, Revenue increase with Credits, decrease with Debits
+                    currentBalance += line.credit;
+                    currentBalance -= line.debit;
+                }
 
-        // Calculate new balance based on Account Type normal balances
-        if (isDebitNormal(accountData.type)) {
-            // Assets & Expenses increase with Debits, decrease with Credits
-            currentBalance += line.debit;
-            currentBalance -= line.credit;
-        } else {
-            // Liabilities, Equity, Revenue increase with Credits, decrease with Debits
-            currentBalance += line.credit;
-            currentBalance -= line.debit;
-        }
-
-        // Add the update to our atomic batch
-        batch.update(accountRef, { balance: currentBalance });
+                // PERFORM THE WRITE
+                transaction.update(snap.ref, { balance: currentBalance });
+            }
+        });
+        return true;
+    } catch (error) {
+        console.error("Transaction failed: ", error);
+        throw error;
     }
-
-    // 3. Commit the atomic operation to Firestore
-    await batch.commit();
-
-    return journalRef.id;
 };
 
 export const updatePaymentStatus = async (journalId, newStatus, newOutstandingCents) => {
     const journalRef = doc(db, JOURNAL_COLLECTION, journalId);
-    await writeBatch(db).update(journalRef, {
-        status: newStatus,
-        outstanding_cents: newOutstandingCents
-    }).commit();
+    await runTransaction(db, async (transaction) => {
+        transaction.update(journalRef, {
+            status: newStatus,
+            outstanding_cents: newOutstandingCents
+        });
+    });
 };
 
 /**
@@ -117,67 +128,78 @@ export const updatePaymentStatus = async (journalId, newStatus, newOutstandingCe
  * Atomically creates the payment journal entry while reducing the invoice's outstanding balance.
  */
 export const processInvoicePayment = async (journalId, paymentCents, paymentType, metadata) => {
-    const journalRef = doc(db, JOURNAL_COLLECTION, journalId);
-    const journalSnap = await getDoc(journalRef);
-    if (!journalSnap.exists()) throw new Error("Invoice not found.");
+    try {
+        await runTransaction(db, async (transaction) => {
+            // --- READ PHASE ---
+            const journalRef = doc(db, JOURNAL_COLLECTION, journalId);
+            const journalSnap = await transaction.get(journalRef);
+            if (!journalSnap.exists()) throw new Error("Invoice not found.");
 
-    const journalData = journalSnap.data();
-    if (journalData.outstanding_cents < paymentCents) {
-        throw new Error("Payment exceeds outstanding balance.");
+            const journalData = journalSnap.data();
+            if (journalData.outstanding_cents < paymentCents) {
+                throw new Error("Payment exceeds outstanding balance.");
+            }
+
+            // Payment bounds
+            const lines = [];
+            if (paymentType === 'receive') {
+                lines.push({ account_id: '1000_cash', debit: paymentCents, credit: 0 });
+                lines.push({ account_id: '1200_ar', debit: 0, credit: paymentCents });
+            } else {
+                lines.push({ account_id: '2000_ap', debit: paymentCents, credit: 0 });
+                lines.push({ account_id: '1000_cash', debit: 0, credit: paymentCents });
+            }
+
+            // Read all involved accounts
+            const accountSnaps = [];
+            for (const line of lines) {
+                const accountRef = doc(db, ACCOUNTS_COLLECTION, line.account_id);
+                const snap = await transaction.get(accountRef);
+                if (!snap.exists()) throw new Error(`Account ${line.account_id} does not exist.`);
+                accountSnaps.push({ snap, line });
+            }
+
+            // --- DATA COMPUTATION ---
+            const newOutstanding = journalData.outstanding_cents - paymentCents;
+            const newStatus = newOutstanding === 0 ? 'paid' : 'partial';
+
+            // --- WRITE PHASE ---
+            // 1. Update the existing invoice
+            transaction.update(journalRef, {
+                status: newStatus,
+                outstanding_cents: newOutstanding
+            });
+
+            // 2. Create the payment journal entry attached to this invoice
+            const paymentRef = doc(collection(db, JOURNAL_COLLECTION));
+            transaction.set(paymentRef, {
+                date: Timestamp.now(),
+                type: 'payment',
+                status: 'paid',
+                ref_no: metadata.refNo || '',
+                total_cents: paymentCents,
+                outstanding_cents: 0,
+                lines,
+                metadata: { ...metadata, related_invoice_id: journalId, payment_type: paymentType }
+            });
+
+            // 3. Update account balances 
+            for (const { snap, line } of accountSnaps) {
+                const accountData = snap.data();
+                let currentBalance = accountData.balance || 0;
+
+                if (isDebitNormal(accountData.type)) {
+                    currentBalance += line.debit;
+                    currentBalance -= line.credit;
+                } else {
+                    currentBalance += line.credit;
+                    currentBalance -= line.debit;
+                }
+                transaction.update(snap.ref, { balance: currentBalance });
+            }
+        });
+    } catch (error) {
+        console.error("Payment transaction failed: ", error);
+        throw error;
     }
-
-    const newOutstanding = journalData.outstanding_cents - paymentCents;
-    const newStatus = newOutstanding === 0 ? 'paid' : 'partial';
-
-    // Payment bounds
-    const lines = [];
-    if (paymentType === 'receive') {
-        lines.push({ account_id: '1000_cash', debit: paymentCents, credit: 0 });
-        lines.push({ account_id: '1200_ar', debit: 0, credit: paymentCents });
-    } else {
-        lines.push({ account_id: '2000_ap', debit: paymentCents, credit: 0 });
-        lines.push({ account_id: '1000_cash', debit: 0, credit: paymentCents });
-    }
-
-    const batch = writeBatch(db);
-
-    // Update the existing invoice
-    batch.update(journalRef, {
-        status: newStatus,
-        outstanding_cents: newOutstanding
-    });
-
-    // Create the payment journal entry attached to this invoice
-    const paymentRef = doc(collection(db, JOURNAL_COLLECTION));
-    batch.set(paymentRef, {
-        date: Timestamp.now(),
-        type: 'payment',
-        status: 'paid',
-        ref_no: metadata.refNo || '',
-        total_cents: paymentCents,
-        outstanding_cents: 0,
-        lines,
-        metadata: { ...metadata, related_invoice_id: journalId, payment_type: paymentType }
-    });
-
-    // Update account balances
-    for (const line of lines) {
-        const accountRef = doc(db, ACCOUNTS_COLLECTION, line.account_id);
-        const accountSnap = await getDoc(accountRef);
-        if (!accountSnap.exists()) throw new Error(`Account ${line.account_id} does not exist.`);
-
-        const accountData = accountSnap.data();
-        let currentBalance = accountData.balance || 0;
-
-        if (isDebitNormal(accountData.type)) {
-            currentBalance += line.debit;
-            currentBalance -= line.credit;
-        } else {
-            currentBalance += line.credit;
-            currentBalance -= line.debit;
-        }
-        batch.update(accountRef, { balance: currentBalance });
-    }
-
-    await batch.commit();
 };

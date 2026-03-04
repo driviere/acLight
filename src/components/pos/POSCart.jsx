@@ -120,8 +120,9 @@ export default function POSCart({ saleType, goBack }) {
             const status = saleType === 'cash' ? 'paid' : 'unpaid';
             const outstanding = saleType === 'cash' ? 0 : cartTotalCents;
             const itemsMeta = cart.map(c => `${c.quantity}x ${c.name}`).join(', ');
+            const journalType = saleType === 'cash' ? 'cash_sale' : 'credit_sale';
 
-            await createJournalEntry('sale', status, `POS-${Date.now()}`, cartTotalCents, outstanding, lines, {
+            await createJournalEntry(journalType, status, `POS-${Date.now()}`, cartTotalCents, outstanding, lines, {
                 created_by: currentUser.uid,
                 type: saleType === 'cash' ? 'pos_cash' : 'pos_credit',
                 customer_name: selectedCustomer ? selectedCustomer.label : 'Walk-in Customer',

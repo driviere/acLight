@@ -13,6 +13,7 @@ export default function ExpenseLogger() {
     const [vendors, setVendors] = useState([]);
     const [selectedVendor, setSelectedVendor] = useState(null);
     const [creatingVendor, setCreatingVendor] = useState(false);
+    const [amount, setAmount] = useState('');
     const [expenseAccount, setExpenseAccount] = useState('5000_cogs');
     const [itemsDescription, setItemsDescription] = useState('');
     const [status, setStatus] = useState('unpaid');

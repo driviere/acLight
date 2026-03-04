@@ -150,8 +150,8 @@ export default function OutstandingList() {
             snap.forEach(doc => {
                 const data = doc.data();
                 const invoice = { id: doc.id, ...data };
-                if (data.type === 'sale') arList.push(invoice);
-                else if (data.type === 'purchase') apList.push(invoice);
+                if (data.type === 'sale' || data.type === 'credit_sale') arList.push(invoice);
+                else if (data.type === 'purchase' || data.type === 'expense') apList.push(invoice);
             });
             setApInvoices(apList.sort((a, b) => b.date.seconds - a.date.seconds));
             setArInvoices(arList.sort((a, b) => b.date.seconds - a.date.seconds));

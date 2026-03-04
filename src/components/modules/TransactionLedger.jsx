@@ -6,7 +6,9 @@ import { PageHeader } from '../../App';
 import { BookmarkBold, DocumentTextBold, NotesBold, CheckSquareBold, CloseSquareBold } from 'solar-icon-set';
 
 const TYPE_LABELS = {
-    sale: 'Sale',
+    sale: 'Sale (Legacy)',
+    cash_sale: 'Cash Sale',
+    credit_sale: 'Credit Invoice',
     purchase: 'Purchase',
     expense: 'Expense',
     waste: 'Waste/Spoilage',
@@ -15,14 +17,16 @@ const TYPE_LABELS = {
 };
 
 const STATUS_BADGE = {
-    paid: { cls: 'is-success is-light', label: 'Cash / Paid' },
-    unpaid: { cls: 'is-warning is-light', label: 'On Credit' },
+    paid: { cls: 'is-success is-light', label: 'Paid' },
+    unpaid: { cls: 'is-warning is-light', label: 'Unpaid' },
     partial: { cls: 'is-info is-light', label: 'Partial' },
     void: { cls: 'is-danger is-light', label: 'Void' },
 };
 
 const TYPE_BADGE = {
     sale: 'is-success',
+    cash_sale: 'is-success',
+    credit_sale: 'is-link is-light',
     purchase: 'is-danger',
     expense: 'is-warning',
     waste: 'is-light',
@@ -127,7 +131,9 @@ export default function TransactionLedger() {
         return true;
     });
 
-    const totalAmount = filtered.reduce((s, e) => s + (e.amount_cents || 0), 0);
+    const totalSales = filtered.filter(e => ['sale', 'cash_sale', 'credit_sale'].includes(e.type)).reduce((s, e) => s + (e.total_cents || 0), 0);
+    const totalPayments = filtered.filter(e => e.type === 'payment' || e.type === 'payment_received').reduce((s, e) => s + (e.total_cents || 0), 0);
+    const totalOverall = filtered.reduce((s, e) => s + (e.total_cents || 0), 0);
 
     const toggleExpand = (id) => {
         setExpandedId(prev => prev === id ? null : id);
@@ -185,7 +191,8 @@ export default function TransactionLedger() {
                 <p className="has-text-grey is-size-7 mt-1">
                     Showing <strong>{filtered.length}</strong> of {entries.length} transactions
                     {filterType !== 'all' || filterStatus !== 'all' ? ' (filtered)' : ''}
-                    {' '} | Total: <strong className="has-text-primary">${toDollarsData(totalAmount)}</strong>
+                    {' '} | Sales: <strong className="has-text-success">${toDollarsData(totalSales)}</strong>
+                    {' '} | Payments: <strong className="has-text-info">${toDollarsData(totalPayments)}</strong>
                 </p>
             </div>
 
@@ -243,7 +250,7 @@ export default function TransactionLedger() {
                                                 <span className={`tag ${statusBadge.cls}`}>{statusBadge.label}</span>
                                             </td>
                                             <td className="has-text-right is-vcentered has-text-weight-bold">
-                                                ${toDollarsData(entry.amount_cents || 0)}
+                                                ${toDollarsData(entry.total_cents || 0)}
                                             </td>
                                             <td className="has-text-right is-vcentered">
                                                 {entry.outstanding_cents > 0
@@ -316,8 +323,15 @@ export default function TransactionLedger() {
                         </tbody>
                         <tfoot>
                             <tr>
-                                <td colSpan={4}><strong>Showing {filtered.length} transactions</strong></td>
-                                <td className="has-text-right has-text-weight-bold has-text-primary">${toDollarsData(totalAmount)}</td>
+                                <td colSpan={3}><strong>Showing {filtered.length} transactions</strong></td>
+                                <td className="has-text-right">
+                                    <div className="is-size-7 has-text-grey">Sales: ${toDollarsData(totalSales)}</div>
+                                    <div className="is-size-7 has-text-grey">Payments: ${toDollarsData(totalPayments)}</div>
+                                </td>
+                                <td className="has-text-right has-text-weight-bold has-text-primary">
+                                    <div className="is-size-6">${toDollarsData(totalOverall)}</div>
+                                    <div className="is-size-7 has-text-grey">Total Sum</div>
+                                </td>
                                 <td colSpan={2}></td>
                             </tr>
                         </tfoot>

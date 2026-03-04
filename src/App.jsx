@@ -93,7 +93,7 @@ const Navigation = () => {
         <div className="navbar-start">
           {navLink('/', 'Register (POS)', <HomeBold size={16} />)}
           {navLink('/outstanding', 'AR / AP', <DatabaseBold size={16} />)}
-          {isAdmin && navLink('/ledger', 'Ledger', <BookmarkBold size={16} />)}
+          {navLink('/ledger', 'Ledger', <BookmarkBold size={16} />)}
           {navLink('/expenses', 'Expenses', <BillBold size={16} />)}
           {navLink('/spoilage', 'Spoilage', <TrashBinMinimalisticBold size={16} />)}
           {isAdmin && navLink('/admin', 'Admin', <SettingsBold size={16} />)}
@@ -163,7 +163,7 @@ function AppContent() {
             </PrivateRoute>
           } />
           <Route path="/admin" element={<PrivateRoute requireAdmin={true}><AdminDashboard /></PrivateRoute>} />
-          <Route path="/ledger" element={<PrivateRoute requireAdmin={true}><TransactionLedger /></PrivateRoute>} />
+          <Route path="/ledger" element={<PrivateRoute><TransactionLedger /></PrivateRoute>} />
         </Routes>
       </div>
     </div>

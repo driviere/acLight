@@ -23,11 +23,11 @@ export default function OutstandingMonitor() {
                     const data = doc.data();
 
                     // Sales that are unpaid -> Money owed TO us (AR)
-                    if (data.type === 'sale') {
+                    if (data.type === 'sale' || data.type === 'credit_sale') {
                         tempAr += data.outstanding_cents || 0;
                     }
-                    // Purchases that are unpaid -> Money owed BY us (AP)
-                    else if (data.type === 'purchase') {
+                    // Purchases/Expenses that are unpaid -> Money owed BY us (AP)
+                    else if (data.type === 'purchase' || data.type === 'expense') {
                         tempAp += data.outstanding_cents || 0;
                     }
                 });

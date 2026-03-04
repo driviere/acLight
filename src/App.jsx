@@ -8,6 +8,7 @@ import AdminDashboard from './components/admin/AdminDashboard';
 import SalesTracker from './components/modules/SalesTracker';
 import ExpenseLogger from './components/modules/ExpenseLogger';
 import OutstandingMonitor from './components/modules/OutstandingMonitor';
+import OutstandingList from './components/modules/OutstandingList';
 import PaymentProcessor from './components/modules/PaymentProcessor';
 import WasteTracker from './components/modules/WasteTracker';
 import TopLevelBar from './components/modules/TopLevelBar';
@@ -74,6 +75,7 @@ const MainDashboard = () => {
       {isAdmin && <TopLevelBar />}
 
       <OutstandingMonitor />
+      <OutstandingList />
 
       {isAdmin && (
         <div className="columns is-desktop is-multiline mt-4">

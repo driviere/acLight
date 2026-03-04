@@ -14,13 +14,28 @@
  * @returns {number} The integer representation in cents
  */
 export const toCents = (uiAmount) => {
-    if (!uiAmount && uiAmount !== 0) return 0;
+    if (uiAmount === null || uiAmount === undefined) return 0;
 
-    // Convert to float, multiply by 100, and round to ensure no .999999999 float bugs
-    const parsed = parseFloat(uiAmount);
-    if (isNaN(parsed)) return 0;
+    // Convert to string to avoid all float math errors and strictly slice 2 decimal places
+    let strAmount = String(uiAmount).trim();
+    if (!strAmount) return 0;
 
-    return Math.round(parsed * 100);
+    const parts = strAmount.split('.');
+
+    let whole = parts[0] ? parseInt(parts[0], 10) : 0;
+    if (isNaN(whole)) return 0;
+
+    let fraction = 0;
+    if (parts.length > 1) {
+        let fracStr = parts[1].substring(0, 2); // Rigidly drop 3rd+ decimal place
+        if (fracStr.length === 1) fracStr += '0'; // "1.5" -> "50"
+        fraction = parseInt(fracStr, 10);
+    }
+
+    const isNegative = strAmount.startsWith('-');
+    const totalCents = (Math.abs(whole) * 100) + fraction;
+
+    return isNegative ? -totalCents : totalCents;
 };
 
 /**

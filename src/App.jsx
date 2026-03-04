@@ -5,12 +5,13 @@ import { HomeBold, SettingsBold, DatabaseBold } from 'solar-icon-set';
 import Login from './components/auth/Login';
 import PrivateRoute from './components/auth/PrivateRoute';
 import AdminDashboard from './components/admin/AdminDashboard';
-import SalesTracker from './components/modules/SalesTracker';
 import ExpenseLogger from './components/modules/ExpenseLogger';
 import OutstandingMonitor from './components/modules/OutstandingMonitor';
 import OutstandingList from './components/modules/OutstandingList';
 import WasteTracker from './components/modules/WasteTracker';
 import TopLevelBar from './components/modules/TopLevelBar';
+import POSDashboard from './components/pos/POSDashboard';
+import { HandMoneyBold, UsersGroupTwoRoundedBold, BillBold, TrashBinMinimalisticBold } from 'solar-icon-set';
 import './App.css';
 
 const Navigation = () => {
@@ -24,13 +25,25 @@ const Navigation = () => {
         <div className="level-item">
           <Link to="/" className="button is-light">
             <span className="icon"><HomeBold size={16} /></span>
-            <span>Dashboard</span>
+            <span>Register (POS)</span>
           </Link>
         </div>
-        <div className="level-item">
+        <div className="level-item is-hidden-mobile">
           <Link to="/outstanding" className="button is-info is-light">
             <span className="icon"><DatabaseBold size={16} /></span>
             <span>AR / AP</span>
+          </Link>
+        </div>
+        <div className="level-item is-hidden-mobile">
+          <Link to="/expenses" className="button is-danger is-light">
+            <span className="icon"><BillBold size={16} /></span>
+            <span>Expenses</span>
+          </Link>
+        </div>
+        <div className="level-item is-hidden-mobile">
+          <Link to="/spoilage" className="button is-warning is-light">
+            <span className="icon"><TrashBinMinimalisticBold size={16} /></span>
+            <span>Spoilage</span>
           </Link>
         </div>
         {isAdmin && (
@@ -81,21 +94,10 @@ const MainDashboard = () => {
 
       <OutstandingMonitor />
 
-      <div className="columns is-desktop is-multiline mt-4">
-        <div className="column is-12-tablet is-6-desktop">
-          <SalesTracker />
-        </div>
-
-        <div className="column is-12-tablet is-6-desktop">
-          <WasteTracker />
-        </div>
-
-        {isAdmin && (
-          <div className="column is-12">
-            <ExpenseLogger />
-          </div>
-        )}
+      <div className="mt-5">
+        <POSDashboard />
       </div>
+
     </div>
   );
 };
@@ -114,6 +116,8 @@ function App() {
             <Route path="/login" element={<Login />} />
             <Route path="/" element={<PrivateRoute><MainDashboard /></PrivateRoute>} />
             <Route path="/outstanding" element={<PrivateRoute><OutstandingList /></PrivateRoute>} />
+            <Route path="/expenses" element={<PrivateRoute requireAdmin={true}><div className="mt-5"><ExpenseLogger /></div></PrivateRoute>} />
+            <Route path="/spoilage" element={<PrivateRoute><div className="mt-5"><WasteTracker /></div></PrivateRoute>} />
             <Route path="/admin" element={<PrivateRoute requireAdmin={true}><AdminDashboard /></PrivateRoute>} />
           </Routes>
         </div>

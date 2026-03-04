@@ -4,6 +4,9 @@ import { doc, setDoc } from 'firebase/firestore';
 import { getAuth, createUserWithEmailAndPassword } from 'firebase/auth';
 import { initializeApp } from 'firebase/app';
 import { UserPlusBold } from 'solar-icon-set';
+import CustomerManager from './CustomerManager';
+import VendorManager from './VendorManager';
+import ItemManager from './ItemManager';
 
 // Note: To create users client-side without logging out the current Admin User,
 // we initialize a secondary, temporary Firebase app instance just for user creation.
@@ -120,6 +123,20 @@ export default function AdminDashboard() {
                     </div>
                 </div>
             </form>
+
+            <hr className="mt-6 mb-6" />
+
+            <div className="columns is-multiline">
+                <div className="column is-12">
+                    <ItemManager />
+                </div>
+                <div className="column is-6">
+                    <CustomerManager />
+                </div>
+                <div className="column is-6">
+                    <VendorManager />
+                </div>
+            </div>
         </div>
     );
 }

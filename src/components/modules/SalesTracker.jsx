@@ -8,6 +8,8 @@ export default function SalesTracker() {
     const { currentUser } = useAuth();
     const [breadSales, setBreadSales] = useState('');
     const [pastrySales, setPastrySales] = useState('');
+    const [customerName, setCustomerName] = useState('');
+    const [paymentStatus, setPaymentStatus] = useState('paid');
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState('');
 
@@ -26,11 +28,14 @@ export default function SalesTracker() {
             }
 
             // Constructing the Double-Entry lines:
-            // Debit: Main Cash Drawer (increase asset)
+            // Debit: Main Cash Drawer (if paid) OR Accounts Receivable (if unpaid)
             // Credit: Bread Sales (increase revenue)
             // Credit: Pastry Sales (increase revenue)
+            const debitAccount = paymentStatus === 'paid' ? '1000_cash' : '1200_ar';
+            const outstanding = paymentStatus === 'unpaid' ? totalCents : 0;
+
             const lines = [
-                { account_id: '1000_cash', debit: totalCents, credit: 0 },
+                { account_id: debitAccount, debit: totalCents, credit: 0 },
             ];
 
             if (breadCents > 0) {
@@ -42,17 +47,19 @@ export default function SalesTracker() {
 
             await createJournalEntry(
                 'sale',
-                'paid', // Assuming cash counter sales are paid immediately
+                paymentStatus,
                 `SALE-${Date.now()}`,
                 totalCents,
-                0, // 0 outstanding since it's fully paid
+                outstanding,
                 lines,
-                { created_by: currentUser.uid, type: 'daily_counter_sales' }
+                { created_by: currentUser.uid, type: 'daily_counter_sales', customer_name: customerName }
             );
 
             setMessage({ type: 'success', text: 'Daily sales logged successfully!' });
             setBreadSales('');
             setPastrySales('');
+            setCustomerName('');
+            setPaymentStatus('paid');
         } catch (error) {
             console.error(error);
             setMessage({ type: 'danger', text: error.message });
@@ -76,7 +83,38 @@ export default function SalesTracker() {
             )}
 
             <form onSubmit={handleSubmit}>
-                <div className="field">
+                <div className="columns is-mobile">
+                    <div className="column">
+                        <div className="field">
+                            <label className="label is-large">Customer (Optional)</label>
+                            <div className="control">
+                                <input
+                                    className="input is-large"
+                                    type="text"
+                                    placeholder="e.g. Acme Diner"
+                                    value={customerName}
+                                    onChange={(e) => setCustomerName(e.target.value)}
+                                    required={paymentStatus === 'unpaid'}
+                                />
+                            </div>
+                        </div>
+                    </div>
+                    <div className="column">
+                        <div className="field">
+                            <label className="label is-large">Status</label>
+                            <div className="control">
+                                <div className="select is-large is-fullwidth">
+                                    <select value={paymentStatus} onChange={(e) => setPaymentStatus(e.target.value)}>
+                                        <option value="paid">Paid (Cash / Register)</option>
+                                        <option value="unpaid">Unpaid (Invoice / AR)</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="field mt-3">
                     <label className="label is-large">Bread Sales ($)</label>
                     <div className="control">
                         <input

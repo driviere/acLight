@@ -1,8 +1,47 @@
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { seedChartOfAccounts } from './services/accountService';
+import { HomeBold, SettingsBold, DatabaseBold } from 'solar-icon-set';
+import Login from './components/auth/Login';
+import PrivateRoute from './components/auth/PrivateRoute';
+import AdminDashboard from './components/admin/AdminDashboard';
 import './App.css';
 
-function App() {
+const Navigation = () => {
+  const { currentUser, isAdmin, logout } = useAuth();
+
+  if (!currentUser) return null;
+
+  return (
+    <nav className="level is-mobile mb-5 p-3 has-background-white" style={{ borderRadius: '8px', boxShadow: '0 2px 3px rgba(10, 10, 10, 0.1)' }}>
+      <div className="level-left">
+        <div className="level-item">
+          <Link to="/" className="button is-light">
+            <span className="icon"><HomeBold size={16} /></span>
+            <span>Dashboard</span>
+          </Link>
+        </div>
+        {isAdmin && (
+          <div className="level-item">
+            <Link to="/admin" className="button is-info is-light">
+              <span className="icon"><SettingsBold size={16} /></span>
+              <span>Admin</span>
+            </Link>
+          </div>
+        )}
+      </div>
+      <div className="level-right">
+        <div className="level-item">
+          <button className="button is-danger is-light" onClick={logout}>
+            Log Out
+          </button>
+        </div>
+      </div>
+    </nav>
+  );
+};
+
+const MainDashboard = () => {
   const handleSeed = async () => {
     try {
       const seeded = await seedChartOfAccounts();
@@ -14,23 +53,34 @@ function App() {
   };
 
   return (
-    <Router>
-      <div className="container mt-5">
-        <h1 className="title has-text-centered has-text-primary">Bakery Ledger</h1>
-        <p className="subtitle has-text-centered">Accounting rigorous, user simple.</p>
+    <div className="box has-text-centered">
+      <p className="mb-4">Main Ledger Dashboard coming soon...</p>
+      <button className="button is-warning is-large" onClick={handleSeed}>
+        <span className="icon"><DatabaseBold size={16} /></span>
+        <span>[DEV] Initialize Database</span>
+      </button>
+    </div>
+  );
+};
 
-        <Routes>
-          <Route path="/" element={
-            <div className="box has-text-centered">
-              <p className="mb-4">Dashboard coming soon...</p>
-              <button className="button is-warning is-large" onClick={handleSeed}>
-                [DEV] Initialize Database
-              </button>
-            </div>
-          } />
-        </Routes>
-      </div>
-    </Router>
+function App() {
+  return (
+    <AuthProvider>
+      <Router>
+        <div className="container mt-5 px-3">
+          <h1 className="title has-text-centered has-text-primary">Bakery Ledger</h1>
+          <p className="subtitle has-text-centered">Accounting rigorous, user simple.</p>
+
+          <Navigation />
+
+          <Routes>
+            <Route path="/login" element={<Login />} />
+            <Route path="/" element={<PrivateRoute><MainDashboard /></PrivateRoute>} />
+            <Route path="/admin" element={<PrivateRoute requireAdmin={true}><AdminDashboard /></PrivateRoute>} />
+          </Routes>
+        </div>
+      </Router>
+    </AuthProvider>
   );
 }
 

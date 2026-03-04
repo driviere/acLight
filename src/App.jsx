@@ -1,7 +1,8 @@
-import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { seedChartOfAccounts } from './services/accountService';
-import { HomeBold, SettingsBold, DatabaseBold } from 'solar-icon-set';
+import { HomeBold, SettingsBold, DatabaseBold, BillBold, TrashBinMinimalisticBold, LogoutBold } from 'solar-icon-set';
 import Login from './components/auth/Login';
 import PrivateRoute from './components/auth/PrivateRoute';
 import AdminDashboard from './components/admin/AdminDashboard';
@@ -11,61 +12,105 @@ import OutstandingList from './components/modules/OutstandingList';
 import WasteTracker from './components/modules/WasteTracker';
 import TopLevelBar from './components/modules/TopLevelBar';
 import POSDashboard from './components/pos/POSDashboard';
-import { HandMoneyBold, UsersGroupTwoRoundedBold, BillBold, TrashBinMinimalisticBold } from 'solar-icon-set';
 import './App.css';
 
+// ── Reusable Page Header ──────────────────────────────────────
+export function PageHeader({ title, subtitle, icon }) {
+  return (
+    <div className="page-header">
+      <h1 className="page-title">
+        {icon && <span className="icon mr-2" style={{ verticalAlign: 'middle' }}>{icon}</span>}
+        {title}
+      </h1>
+      {subtitle && <p className="page-subtitle">{subtitle}</p>}
+    </div>
+  );
+}
+
+// ── Toast notification hook ───────────────────────────────────
+export function useToast() {
+  const [toast, setToast] = useState(null);
+
+  const showToast = (message, type = 'success', duration = 3500) => {
+    setToast({ message, type });
+    setTimeout(() => {
+      setToast(t => t ? { ...t, hiding: true } : null);
+      setTimeout(() => setToast(null), 350);
+    }, duration);
+  };
+
+  const ToastComponent = toast ? (
+    <div className={`bl-toast notification is-${toast.type} ${toast.hiding ? 'hiding' : ''}`}>
+      <button className="delete" onClick={() => setToast(null)}></button>
+      {toast.message}
+    </div>
+  ) : null;
+
+  return { showToast, ToastComponent };
+}
+
+// ── Burger Navigation ─────────────────────────────────────────
 const Navigation = () => {
   const { currentUser, isAdmin, logout } = useAuth();
+  const location = useLocation();
+  const [isOpen, setIsOpen] = useState(false);
 
   if (!currentUser) return null;
 
+  const isActive = (path) => location.pathname === path;
+
+  const navLink = (to, label, icon, extraClass = '') => (
+    <Link
+      to={to}
+      className={`navbar-item ${isActive(to) ? 'is-active-route' : ''} ${extraClass}`}
+      onClick={() => setIsOpen(false)}
+    >
+      <span className="icon mr-2">{icon}</span>
+      <span>{label}</span>
+    </Link>
+  );
+
   return (
-    <nav className="level is-mobile mb-5 p-3 has-background-white" style={{ borderRadius: '8px', boxShadow: '0 2px 3px rgba(10, 10, 10, 0.1)' }}>
-      <div className="level-left">
-        <div className="level-item">
-          <Link to="/" className="button is-light">
-            <span className="icon"><HomeBold size={16} /></span>
-            <span>Register (POS)</span>
-          </Link>
-        </div>
-        <div className="level-item is-hidden-mobile">
-          <Link to="/outstanding" className="button is-info is-light">
-            <span className="icon"><DatabaseBold size={16} /></span>
-            <span>AR / AP</span>
-          </Link>
-        </div>
-        <div className="level-item is-hidden-mobile">
-          <Link to="/expenses" className="button is-danger is-light">
-            <span className="icon"><BillBold size={16} /></span>
-            <span>Expenses</span>
-          </Link>
-        </div>
-        <div className="level-item is-hidden-mobile">
-          <Link to="/spoilage" className="button is-warning is-light">
-            <span className="icon"><TrashBinMinimalisticBold size={16} /></span>
-            <span>Spoilage</span>
-          </Link>
-        </div>
-        {isAdmin && (
-          <div className="level-item">
-            <Link to="/admin" className="button is-info is-light">
-              <span className="icon"><SettingsBold size={16} /></span>
-              <span>Admin</span>
-            </Link>
-          </div>
-        )}
+    <nav className="navbar bl-navbar mb-4" role="navigation" aria-label="main navigation">
+      <div className="navbar-brand">
+        <span className="navbar-item" style={{ fontWeight: 800, fontSize: '1.1rem', color: '#00b894' }}>
+          🥖 Bakery Ledger
+        </span>
+        <button
+          className={`navbar-burger ${isOpen ? 'is-active' : ''}`}
+          aria-label="menu"
+          aria-expanded={isOpen}
+          onClick={() => setIsOpen(o => !o)}
+          style={{ background: 'none', border: 'none', cursor: 'pointer' }}
+        >
+          <span aria-hidden="true"></span>
+          <span aria-hidden="true"></span>
+          <span aria-hidden="true"></span>
+        </button>
       </div>
-      <div className="level-right">
-        <div className="level-item">
-          <button className="button is-danger is-light" onClick={logout}>
-            Log Out
-          </button>
+
+      <div className={`navbar-menu ${isOpen ? 'is-active' : ''}`}>
+        <div className="navbar-start">
+          {navLink('/', 'Register (POS)', <HomeBold size={16} />)}
+          {navLink('/outstanding', 'AR / AP', <DatabaseBold size={16} />)}
+          {navLink('/expenses', 'Expenses', <BillBold size={16} />)}
+          {navLink('/spoilage', 'Spoilage', <TrashBinMinimalisticBold size={16} />)}
+          {isAdmin && navLink('/admin', 'Admin', <SettingsBold size={16} />)}
+        </div>
+        <div className="navbar-end">
+          <div className="navbar-item">
+            <button className="button is-light is-small" onClick={logout}>
+              <span className="icon"><LogoutBold size={14} /></span>
+              <span>Log Out</span>
+            </button>
+          </div>
         </div>
       </div>
     </nav>
   );
 };
 
+// ── Main Dashboard ────────────────────────────────────────────
 const MainDashboard = () => {
   const { isAdmin } = useAuth();
 
@@ -73,16 +118,16 @@ const MainDashboard = () => {
     try {
       const seeded = await seedChartOfAccounts();
       if (seeded) alert('Chart of Accounts successfully seeded!');
-      else alert('Accounts already exist. Skipping.');
+      else alert('Accounts already seeded.');
     } catch (e) {
       alert('Error seeding accounts. Check console.');
     }
   };
 
   return (
-    <div className="dashboard-container">
+    <div>
       {isAdmin && (
-        <div className="has-text-right mb-4">
+        <div className="has-text-right mb-3">
           <button className="button is-warning is-small is-outlined" onClick={handleSeed}>
             <span className="icon"><DatabaseBold size={14} /></span>
             <span>[DEV] Init DB</span>
@@ -97,30 +142,56 @@ const MainDashboard = () => {
       <div className="mt-5">
         <POSDashboard />
       </div>
-
     </div>
   );
 };
+
+// ── App Wrapper ───────────────────────────────────────────────
+function AppContent() {
+  const { currentUser } = useAuth();
+  const location = useLocation();
+  const isLogin = location.pathname === '/login';
+
+  return (
+    <div className="app-shell">
+      {!isLogin && currentUser && (
+        <div className="app-header">
+          <p className="app-logo">🥖 Bakery Ledger</p>
+          <p className="app-tagline">Accounting rigorous, user simple.</p>
+        </div>
+      )}
+
+      <div className={isLogin ? '' : 'container px-4 py-4'}>
+        {!isLogin && <Navigation />}
+
+        <Routes>
+          <Route path="/login" element={<Login />} />
+          <Route path="/" element={<PrivateRoute><MainDashboard /></PrivateRoute>} />
+          <Route path="/outstanding" element={<PrivateRoute><OutstandingList /></PrivateRoute>} />
+          <Route path="/expenses" element={
+            <PrivateRoute requireAdmin={true}>
+              <PageHeader title="Expenses" subtitle="Record incoming vendor bills and receipts." icon={<BillBold />} />
+              <ExpenseLogger />
+            </PrivateRoute>
+          } />
+          <Route path="/spoilage" element={
+            <PrivateRoute>
+              <PageHeader title="Spoilage & Waste" subtitle="Log burned or unsold daily products." icon={<TrashBinMinimalisticBold />} />
+              <WasteTracker />
+            </PrivateRoute>
+          } />
+          <Route path="/admin" element={<PrivateRoute requireAdmin={true}><AdminDashboard /></PrivateRoute>} />
+        </Routes>
+      </div>
+    </div>
+  );
+}
 
 function App() {
   return (
     <AuthProvider>
       <Router>
-        <div className="container mt-5 px-3">
-          <h1 className="title has-text-centered has-text-primary">Bakery Ledger</h1>
-          <p className="subtitle has-text-centered">Accounting rigorous, user simple.</p>
-
-          <Navigation />
-
-          <Routes>
-            <Route path="/login" element={<Login />} />
-            <Route path="/" element={<PrivateRoute><MainDashboard /></PrivateRoute>} />
-            <Route path="/outstanding" element={<PrivateRoute><OutstandingList /></PrivateRoute>} />
-            <Route path="/expenses" element={<PrivateRoute requireAdmin={true}><div className="mt-5"><ExpenseLogger /></div></PrivateRoute>} />
-            <Route path="/spoilage" element={<PrivateRoute><div className="mt-5"><WasteTracker /></div></PrivateRoute>} />
-            <Route path="/admin" element={<PrivateRoute requireAdmin={true}><AdminDashboard /></PrivateRoute>} />
-          </Routes>
-        </div>
+        <AppContent />
       </Router>
     </AuthProvider>
   );

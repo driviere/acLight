@@ -5,6 +5,7 @@ import { toDollarsData, toCents } from '../../utils/moneyUtils';
 import { processInvoicePayment } from '../../services/journalService';
 import { useAuth } from '../../contexts/AuthContext';
 import { DocumentTextBold, BillBold, HandMoneyBold, AddCircleBold } from 'solar-icon-set';
+import { PageHeader, useToast } from '../../App';
 
 const PaymentModal = ({ invoice, type, isActive, onClose, onSuccess }) => {
     const { currentUser } = useAuth();
@@ -159,13 +160,16 @@ export default function OutstandingList() {
     }, []);
 
     if (loading && apInvoices.length === 0 && arInvoices.length === 0) {
-        return <div className="box has-text-centered"><span className="button is-loading is-white is-large"></span></div>;
+        return <div className="has-text-centered" style={{ padding: '5rem' }}><span className="button is-loading is-white is-large"></span></div>;
     }
 
     return (
-        <div className="container mt-5">
-            <h1 className="title has-text-primary has-text-centered">Accounts Receivable & Payable</h1>
-            <p className="subtitle has-text-grey has-text-centered mb-5">Manage outstanding balances and apply payments.</p>
+        <div>
+            <PageHeader
+                title="AR / AP Outstanding"
+                subtitle="Apply payments directly against invoices and bills."
+                icon={<DocumentTextBold size={24} />}
+            />
 
             <div className="columns is-desktop mt-4">
                 {/* AP Column */}
@@ -176,7 +180,11 @@ export default function OutstandingList() {
                             Unpaid Vendor Bills (We Owe)
                         </h3>
                         {apInvoices.length === 0 ? (
-                            <p className="has-text-grey">No outstanding bills.</p>
+                            <div className="empty-state">
+                                <span className="empty-emoji">🎉</span>
+                                <p className="empty-title">All clear!</p>
+                                <p className="empty-subtitle">No outstanding vendor bills.</p>
+                            </div>
                         ) : (
                             <div className="table-container">
                                 <table className="table is-fullwidth is-hoverable has-background-danger-light">
@@ -224,7 +232,11 @@ export default function OutstandingList() {
                             Unpaid Customer Invoices (Owed To Us)
                         </h3>
                         {arInvoices.length === 0 ? (
-                            <p className="has-text-grey">No outstanding invoices.</p>
+                            <div className="empty-state">
+                                <span className="empty-emoji">📬</span>
+                                <p className="empty-title">No outstanding invoices</p>
+                                <p className="empty-subtitle">All customer balances are settled.</p>
+                            </div>
                         ) : (
                             <div className="table-container">
                                 <table className="table is-fullwidth is-hoverable has-background-link-light">

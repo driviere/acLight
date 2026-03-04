@@ -1,1 +1,356 @@
-/* Bakery Ledger Global Styles */
+/* ============================================================
+   Bakery Ledger — Global Design System
+   ============================================================ */
+
+/* --- Typography --- */
+body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #f5f7fa;
+    color: #2d3748;
+    -webkit-font-smoothing: antialiased;
+}
+
+/* --- Custom Color Overrides --- */
+:root {
+    --bl-primary: #00b894;
+    --bl-primary-dark: #00836b;
+    --bl-danger: #e55353;
+    --bl-info: #3273dc;
+    --bl-warning: #f0a500;
+    --bl-bg: #f5f7fa;
+    --bl-white: #ffffff;
+    --bl-shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.06);
+    --bl-shadow-md: 0 4px 20px rgba(0, 0, 0, 0.10);
+    --bl-shadow-lg: 0 8px 40px rgba(0, 0, 0, 0.14);
+    --bl-radius: 14px;
+    --bl-radius-sm: 8px;
+    --bl-transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* --- App Shell --- */
+.app-shell {
+    min-height: 100vh;
+    background: var(--bl-bg);
+}
+
+/* --- App Header --- */
+.app-header {
+    background: linear-gradient(135deg, #00b894 0%, #00836b 100%);
+    padding: 18px 24px 14px;
+    box-shadow: var(--bl-shadow-md);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+}
+
+.app-header .app-logo {
+    font-weight: 800;
+    font-size: 1.4rem;
+    color: white;
+    letter-spacing: -0.5px;
+}
+
+.app-header .app-tagline {
+    font-size: 0.75rem;
+    color: rgba(255, 255, 255, 0.8);
+    font-weight: 400;
+}
+
+/* --- Burger Navbar --- */
+.bl-navbar {
+    background: var(--bl-white);
+    box-shadow: var(--bl-shadow-sm);
+    border-bottom: 1px solid #e8ecf0;
+}
+
+.bl-navbar .navbar-item,
+.bl-navbar .navbar-link {
+    font-weight: 500;
+    color: #4a5568;
+    border-radius: var(--bl-radius-sm);
+    transition: var(--bl-transition);
+    margin: 2px 2px;
+}
+
+.bl-navbar .navbar-item:hover,
+.bl-navbar .navbar-link:hover {
+    background: #f0fdf9 !important;
+    color: var(--bl-primary) !important;
+}
+
+.bl-navbar .navbar-item.is-active-route {
+    background: #e6f7f4 !important;
+    color: var(--bl-primary) !important;
+    font-weight: 700;
+    border-bottom: 3px solid var(--bl-primary);
+}
+
+/* --- Cards / Boxes --- */
+.box {
+    border-radius: var(--bl-radius) !important;
+    box-shadow: var(--bl-shadow-sm) !important;
+    border: 1px solid rgba(0, 0, 0, 0.04);
+}
+
+/* --- Buttons --- */
+.button {
+    font-family: 'Inter', sans-serif;
+    font-weight: 600;
+    border-radius: var(--bl-radius-sm) !important;
+    transition: var(--bl-transition) !important;
+}
+
+.button:not(:disabled):hover {
+    transform: translateY(-1px);
+    box-shadow: var(--bl-shadow-md) !important;
+}
+
+.button:active {
+    transform: translateY(0px) scale(0.98) !important;
+}
+
+/* --- POS Mode Selection Buttons --- */
+.pos-mode-btn {
+    transition: transform 0.2s ease, box-shadow 0.2s ease !important;
+    box-shadow: var(--bl-shadow-md) !important;
+}
+
+.pos-mode-btn:hover {
+    transform: scale(1.03) translateY(-4px) !important;
+    box-shadow: var(--bl-shadow-lg) !important;
+}
+
+.pos-mode-btn.cash-btn {
+    background: linear-gradient(135deg, #00b894 0%, #00836b 100%) !important;
+    border: none !important;
+}
+
+.pos-mode-btn.credit-btn {
+    background: linear-gradient(135deg, #3273dc 0%, #2054b5 100%) !important;
+    border: none !important;
+}
+
+/* --- POS Quick Item Buttons --- */
+.pos-item-btn {
+    transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease !important;
+    border: 2px solid transparent !important;
+    box-shadow: var(--bl-shadow-sm) !important;
+}
+
+.pos-item-btn:hover {
+    transform: scale(1.04) !important;
+    box-shadow: var(--bl-shadow-md) !important;
+    border-color: var(--bl-primary) !important;
+}
+
+.pos-item-btn:active {
+    transform: scale(0.97) !important;
+}
+
+/* --- Inputs --- */
+.input,
+.select select,
+.textarea {
+    font-family: 'Inter', sans-serif;
+    border-radius: var(--bl-radius-sm) !important;
+    border-color: #d1d9e0 !important;
+    transition: var(--bl-transition) !important;
+}
+
+.input:focus,
+.select select:focus {
+    border-color: var(--bl-primary) !important;
+    box-shadow: 0 0 0 3px rgba(0, 184, 148, 0.15) !important;
+}
+
+/* --- Notification auto-dismiss --- */
+.bl-toast {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    z-index: 9999;
+    max-width: 380px;
+    border-radius: var(--bl-radius) !important;
+    box-shadow: var(--bl-shadow-lg) !important;
+    animation: slideInUp 0.3s ease;
+}
+
+@keyframes slideInUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes slideOutDown {
+    from {
+        opacity: 1;
+        transform: translateY(0);
+    }
+
+    to {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+}
+
+.bl-toast.hiding {
+    animation: slideOutDown 0.3s ease forwards;
+}
+
+/* --- Consistent Page Headers --- */
+.page-header {
+    margin-bottom: 2rem;
+    padding-bottom: 1.25rem;
+    border-bottom: 2px solid #e8ecf0;
+}
+
+.page-header .page-title {
+    font-size: 1.75rem;
+    font-weight: 800;
+    color: #1a202c;
+    letter-spacing: -0.5px;
+    margin-bottom: 0.25rem;
+}
+
+.page-header .page-subtitle {
+    font-size: 0.9rem;
+    color: #718096;
+    margin: 0;
+}
+
+/* --- Cart badge --- */
+.cart-badge {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    background: #e55353;
+    color: white;
+    border-radius: 50%;
+    width: 22px;
+    height: 22px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid white;
+}
+
+/* --- Empty State --- */
+.empty-state {
+    padding: 3rem 1rem;
+    text-align: center;
+    color: #a0aec0;
+}
+
+.empty-state .empty-emoji {
+    font-size: 3rem;
+    display: block;
+    margin-bottom: 1rem;
+}
+
+.empty-state .empty-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #718096;
+    margin-bottom: 0.5rem;
+}
+
+.empty-state .empty-subtitle {
+    font-size: 0.875rem;
+    color: #a0aec0;
+}
+
+/* --- Login Page --- */
+.login-page {
+    min-height: 100vh;
+    background: linear-gradient(135deg, #00b894 0%, #0984e3 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+}
+
+.login-card {
+    background: white;
+    border-radius: 20px !important;
+    box-shadow: var(--bl-shadow-lg) !important;
+    padding: 2.5rem !important;
+    max-width: 420px;
+    width: 100%;
+}
+
+.login-logo {
+    font-size: 2.5rem;
+    margin-bottom: 0.5rem;
+}
+
+/* --- Tabs (Admin Dashboard) --- */
+.tabs.is-boxed li.is-active a {
+    background: #f0fdf9;
+    border-color: var(--bl-primary) !important;
+    border-bottom-color: transparent !important;
+    color: var(--bl-primary) !important;
+    font-weight: 700;
+}
+
+/* --- Responsive / Mobile helpers --- */
+.is-sticky-bottom {
+    position: sticky;
+    bottom: 0;
+    background: white;
+    padding: 1rem;
+    border-top: 1px solid #e8ecf0;
+    box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.08);
+    z-index: 10;
+}
+
+/* --- Tables --- */
+.table th {
+    font-weight: 700;
+    color: #4a5568;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.table tbody tr {
+    transition: background 0.1s ease;
+}
+
+/* --- Dashboard stats cards --- */
+.stat-card {
+    border-radius: var(--bl-radius) !important;
+    padding: 1.5rem;
+    box-shadow: var(--bl-shadow-sm) !important;
+    transition: var(--bl-transition);
+}
+
+.stat-card:hover {
+    box-shadow: var(--bl-shadow-md) !important;
+    transform: translateY(-2px);
+}
+
+/* --- Scrollbar Styling (Webkit) --- */
+::-webkit-scrollbar {
+    width: 6px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #cbd5e0;
+    border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #a0aec0;
+}

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { LetterBold, LockPasswordBold } from 'solar-icon-set';
+import { LetterBold, LockPasswordBold, HandMoneyBold } from 'solar-icon-set';
 
 export default function Login() {
     const [email, setEmail] = useState('');
@@ -14,12 +14,11 @@ export default function Login() {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-
         try {
             setError('');
             setLoading(true);
             await login(email, password);
-            navigate('/'); // Redirect to dashboard
+            navigate('/');
         } catch (err) {
             setError('Failed to sign in. Please check your credentials.');
             console.error(err);
@@ -28,20 +27,36 @@ export default function Login() {
     };
 
     return (
-        <div className="container mt-6" style={{ maxWidth: '400px' }}>
-            <div className="box">
-                <h2 className="title has-text-centered has-text-primary mb-5">Staff Login</h2>
+        <div className="login-page">
+            <div className="login-card box">
+                {/* Branding */}
+                <div className="has-text-centered mb-5">
+                    <div className="login-logo">🥖</div>
+                    <h1 className="title is-3 mb-1" style={{ fontWeight: 800, color: '#1a202c' }}>Bakery Ledger</h1>
+                    <p className="subtitle is-6" style={{ color: '#718096' }}>Accounting rigorous, user simple.</p>
+                    <div className="tags is-centered mt-3">
+                        <span className="tag is-success is-light">Double-Entry Bookkeeping</span>
+                        <span className="tag is-info is-light">POS System</span>
+                        <span className="tag is-warning is-light">AR / AP Tracking</span>
+                    </div>
+                </div>
 
-                {error && <div className="notification is-danger is-light">{error}</div>}
+                <hr />
+
+                {error && (
+                    <div className="notification is-danger is-light mb-4" style={{ borderRadius: '10px' }}>
+                        {error}
+                    </div>
+                )}
 
                 <form onSubmit={handleSubmit}>
                     <div className="field mb-4">
-                        <label className="label">Email</label>
+                        <label className="label">Email Address</label>
                         <div className="control has-icons-left">
                             <input
                                 className="input is-medium"
                                 type="email"
-                                placeholder="baker@bakeryledger.com"
+                                placeholder="baker@example.com"
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
                                 required
@@ -58,7 +73,7 @@ export default function Login() {
                             <input
                                 className="input is-medium"
                                 type="password"
-                                placeholder="********"
+                                placeholder="••••••••"
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
                                 required
@@ -73,8 +88,10 @@ export default function Login() {
                         className={`button is-primary is-fullwidth is-medium ${loading ? 'is-loading' : ''}`}
                         type="submit"
                         disabled={loading}
+                        style={{ height: '52px', fontSize: '1rem', borderRadius: '10px' }}
                     >
-                        <strong>Sign In</strong>
+                        <span className="icon"><HandMoneyBold size={18} /></span>
+                        <strong>Sign In to Ledger</strong>
                     </button>
                 </form>
             </div>

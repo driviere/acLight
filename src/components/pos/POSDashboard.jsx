@@ -3,43 +3,59 @@ import POSCart from './POSCart';
 import { HandMoneyBold, UsersGroupTwoRoundedBold } from 'solar-icon-set';
 
 export default function POSDashboard() {
-    // Determine which mode the POS is in: null (selection screen), 'cash', or 'credit'
     const [saleMode, setSaleMode] = useState(null);
 
-    // If a mode is selected, show the unified POS cart configured for that type
     if (saleMode) {
         return <POSCart saleType={saleMode} goBack={() => setSaleMode(null)} />;
     }
 
-    // Default Selection Screen
     return (
-        <div className="columns is-centered mt-6 mb-6">
-            <div className="column is-5">
-                <button
-                    className="button is-success is-large is-fullwidth"
-                    onClick={() => setSaleMode('cash')}
-                    style={{ height: '300px', display: 'flex', flexDirection: 'column', borderRadius: '24px' }}
-                >
-                    <span className="icon" style={{ height: '100px', width: '100px', marginBottom: '20px' }}>
-                        <HandMoneyBold size={96} />
-                    </span>
-                    <span className="title is-2 has-text-white mb-0">CASH SALE</span>
-                    <span className="subtitle is-5 has-text-white mt-2">Walk-in Customer / Register</span>
-                </button>
+        <div>
+            <div className="has-text-centered mb-5">
+                <h2 className="title is-4" style={{ fontWeight: 800, color: '#1a202c' }}>Select Sale Type</h2>
+                <p className="subtitle is-6" style={{ color: '#718096' }}>Choose how this transaction will be settled.</p>
             </div>
 
-            <div className="column is-5">
-                <button
-                    className="button is-info is-large is-fullwidth"
-                    onClick={() => setSaleMode('credit')}
-                    style={{ height: '300px', display: 'flex', flexDirection: 'column', borderRadius: '24px' }}
-                >
-                    <span className="icon" style={{ height: '100px', width: '100px', marginBottom: '20px' }}>
-                        <UsersGroupTwoRoundedBold size={96} />
-                    </span>
-                    <span className="title is-2 has-text-white mb-0">CREDIT SALE</span>
-                    <span className="subtitle is-5 has-text-white mt-2">Invoice / B2B Account</span>
-                </button>
+            <div className="columns is-centered">
+                <div className="column is-5-tablet is-4-desktop">
+                    <button
+                        className="button is-large is-fullwidth pos-mode-btn cash-btn"
+                        onClick={() => setSaleMode('cash')}
+                        style={{
+                            height: '280px',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            borderRadius: '20px',
+                            gap: '16px',
+                        }}
+                    >
+                        <span style={{ fontSize: '4rem', lineHeight: 1 }}>💵</span>
+                        <div>
+                            <div className="title is-3 has-text-white mb-1" style={{ letterSpacing: '-0.5px' }}>CASH SALE</div>
+                            <div className="subtitle is-6 has-text-white" style={{ opacity: 0.85 }}>Walk-in Customer · Register</div>
+                        </div>
+                    </button>
+                </div>
+
+                <div className="column is-5-tablet is-4-desktop">
+                    <button
+                        className="button is-large is-fullwidth pos-mode-btn credit-btn"
+                        onClick={() => setSaleMode('credit')}
+                        style={{
+                            height: '280px',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            borderRadius: '20px',
+                            gap: '16px',
+                        }}
+                    >
+                        <span style={{ fontSize: '4rem', lineHeight: 1 }}>🧾</span>
+                        <div>
+                            <div className="title is-3 has-text-white mb-1" style={{ letterSpacing: '-0.5px' }}>CREDIT SALE</div>
+                            <div className="subtitle is-6 has-text-white" style={{ opacity: 0.85 }}>Invoice · B2B Account</div>
+                        </div>
+                    </button>
+                </div>
             </div>
         </div>
     );

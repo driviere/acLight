@@ -1,22 +1,63 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { collection, getDocs, addDoc, Timestamp } from 'firebase/firestore';
+import { db } from '../../firebase';
 import { useAuth } from '../../contexts/AuthContext';
 import { createJournalEntry } from '../../services/journalService';
 import { toCents } from '../../utils/moneyUtils';
+import { useToast } from '../../App';
+import CreatableSelect from 'react-select/creatable';
 import { BillBold, AddCircleBold } from 'solar-icon-set';
 
 export default function ExpenseLogger() {
     const { currentUser } = useAuth();
-    const [vendor, setVendor] = useState('');
-    const [amount, setAmount] = useState('');
+    const [vendors, setVendors] = useState([]);
+    const [selectedVendor, setSelectedVendor] = useState(null);
+    const [creatingVendor, setCreatingVendor] = useState(false);
     const [expenseAccount, setExpenseAccount] = useState('5000_cogs');
+    const [itemsDescription, setItemsDescription] = useState('');
     const [status, setStatus] = useState('unpaid');
     const [loading, setLoading] = useState(false);
-    const [message, setMessage] = useState('');
+    const { showToast, ToastComponent } = useToast();
+
+    useEffect(() => {
+        const fetchVendors = async () => {
+            const snap = await getDocs(collection(db, 'vendors'));
+            const list = snap.docs.map(doc => ({ value: doc.id, label: doc.data().name }));
+            setVendors(list.sort((a, b) => a.label.localeCompare(b.label)));
+        };
+        fetchVendors();
+    }, []);
+
+    const handleCreateVendor = async (inputName) => {
+        const name = inputName.trim();
+        if (!name) return;
+        setCreatingVendor(true);
+        try {
+            const docRef = await addDoc(collection(db, 'vendors'), {
+                name,
+                createdAt: Timestamp.now(),
+                createdBy: currentUser.uid,
+            });
+            const newOption = { value: docRef.id, label: name };
+            setVendors(prev => [...prev, newOption].sort((a, b) => a.label.localeCompare(b.label)));
+            setSelectedVendor(newOption);
+            showToast(`✅ Vendor "${name}" created and selected!`, 'success');
+        } catch (err) {
+            console.error('Failed to create vendor:', err);
+            showToast(`Failed to create vendor: ${err.message}`, 'danger');
+        }
+        setCreatingVendor(false);
+    };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+
+        if (!selectedVendor) {
+            showToast('Please select or create a vendor.', 'danger');
+            return;
+        }
+
         setLoading(true);
-        setMessage('');
 
         try {
             const totalCents = toCents(amount);
@@ -44,16 +85,21 @@ export default function ExpenseLogger() {
                 totalCents,
                 outstanding,
                 lines,
-                { created_by: currentUser.uid, vendor_name: vendor }
+                {
+                    created_by: currentUser.uid,
+                    vendor_name: selectedVendor.label,
+                    items_summary: itemsDescription.trim() || undefined
+                }
             );
 
-            setMessage({ type: 'success', text: 'Expense logged successfully!' });
-            setVendor('');
+            showToast('Expense logged successfully!', 'success');
+            setSelectedVendor(null);
             setAmount('');
+            setItemsDescription('');
             setStatus('unpaid');
         } catch (error) {
             console.error(error);
-            setMessage({ type: 'danger', text: error.message });
+            showToast(error.message, 'danger');
         }
 
         setLoading(false);
@@ -67,23 +113,45 @@ export default function ExpenseLogger() {
             </h2>
             <p className="subtitle is-6 mb-5">Record incoming invoices and receipts.</p>
 
-            {message && (
-                <div className={`notification is-${message.type} is-light`}>
-                    {message.text}
-                </div>
-            )}
+            {ToastComponent}
 
             <form onSubmit={handleSubmit}>
                 <div className="field">
                     <label className="label is-large">Vendor Name</label>
                     <div className="control">
+                        <CreatableSelect
+                            options={vendors}
+                            value={selectedVendor}
+                            onChange={setSelectedVendor}
+                            onCreateOption={handleCreateVendor}
+                            isLoading={creatingVendor}
+                            isDisabled={creatingVendor}
+                            placeholder="Search or type a new vendor name..."
+                            isClearable
+                            formatCreateLabel={(inputValue) => (
+                                <span><strong>➕ Add new vendor:</strong> "{inputValue}"</span>
+                            )}
+                            noOptionsMessage={() => 'Type a vendor name to search or create'}
+                            styles={{
+                                control: (base) => ({
+                                    ...base,
+                                    height: '50px', // matches is-large input
+                                    fontSize: '1.25rem'
+                                })
+                            }}
+                        />
+                    </div>
+                </div>
+
+                <div className="field">
+                    <label className="label is-large">Items Description</label>
+                    <div className="control">
                         <input
                             className="input is-large"
                             type="text"
-                            placeholder="e.g. Acme Flour Co."
-                            value={vendor}
-                            onChange={(e) => setVendor(e.target.value)}
-                            required
+                            placeholder="e.g. 5 bags of flour, 2 boxes of sugar"
+                            value={itemsDescription}
+                            onChange={(e) => setItemsDescription(e.target.value)}
                         />
                     </div>
                 </div>

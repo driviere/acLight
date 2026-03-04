@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
-import { seedChartOfAccounts } from './services/accountService';
-import { HomeBold, SettingsBold, DatabaseBold, BillBold, TrashBinMinimalisticBold, LogoutBold } from 'solar-icon-set';
+import { HomeBold, SettingsBold, DatabaseBold, BillBold, TrashBinMinimalisticBold, LogoutBold, BookmarkBold } from 'solar-icon-set';
 import Login from './components/auth/Login';
 import PrivateRoute from './components/auth/PrivateRoute';
 import AdminDashboard from './components/admin/AdminDashboard';
@@ -12,6 +11,7 @@ import OutstandingList from './components/modules/OutstandingList';
 import WasteTracker from './components/modules/WasteTracker';
 import TopLevelBar from './components/modules/TopLevelBar';
 import POSDashboard from './components/pos/POSDashboard';
+import TransactionLedger from './components/modules/TransactionLedger';
 import './App.css';
 
 // ── Reusable Page Header ──────────────────────────────────────
@@ -93,6 +93,7 @@ const Navigation = () => {
         <div className="navbar-start">
           {navLink('/', 'Register (POS)', <HomeBold size={16} />)}
           {navLink('/outstanding', 'AR / AP', <DatabaseBold size={16} />)}
+          {isAdmin && navLink('/ledger', 'Ledger', <BookmarkBold size={16} />)}
           {navLink('/expenses', 'Expenses', <BillBold size={16} />)}
           {navLink('/spoilage', 'Spoilage', <TrashBinMinimalisticBold size={16} />)}
           {isAdmin && navLink('/admin', 'Admin', <SettingsBold size={16} />)}
@@ -114,27 +115,8 @@ const Navigation = () => {
 const MainDashboard = () => {
   const { isAdmin } = useAuth();
 
-  const handleSeed = async () => {
-    try {
-      const seeded = await seedChartOfAccounts();
-      if (seeded) alert('Chart of Accounts successfully seeded!');
-      else alert('Accounts already seeded.');
-    } catch (e) {
-      alert('Error seeding accounts. Check console.');
-    }
-  };
-
   return (
     <div>
-      {isAdmin && (
-        <div className="has-text-right mb-3">
-          <button className="button is-warning is-small is-outlined" onClick={handleSeed}>
-            <span className="icon"><DatabaseBold size={14} /></span>
-            <span>[DEV] Init DB</span>
-          </button>
-        </div>
-      )}
-
       {isAdmin && <TopLevelBar />}
 
       <OutstandingMonitor />
@@ -181,6 +163,7 @@ function AppContent() {
             </PrivateRoute>
           } />
           <Route path="/admin" element={<PrivateRoute requireAdmin={true}><AdminDashboard /></PrivateRoute>} />
+          <Route path="/ledger" element={<PrivateRoute requireAdmin={true}><TransactionLedger /></PrivateRoute>} />
         </Routes>
       </div>
     </div>

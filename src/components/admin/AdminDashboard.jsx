@@ -7,6 +7,7 @@ import { UserPlusBold, BoxBold, UsersGroupTwoRoundedBold, BuildingsBold, Setting
 import CustomerManager from './CustomerManager';
 import VendorManager from './VendorManager';
 import ItemManager from './ItemManager';
+import UserManager from './UserManager';
 import { PageHeader } from '../../App';
 
 // Secondary Firebase app for creating users without logging out current admin.
@@ -26,79 +27,6 @@ const TABS = [
     { id: 'customers', label: 'Customers', icon: <UsersGroupTwoRoundedBold size={16} /> },
     { id: 'vendors', label: 'Vendors', icon: <BuildingsBold size={16} /> },
 ];
-
-function CreateUserPanel() {
-    const [email, setEmail] = useState('');
-    const [password, setPassword] = useState('');
-    const [role, setRole] = useState('staff');
-    const [loading, setLoading] = useState(false);
-    const [message, setMessage] = useState({ type: '', text: '' });
-
-    const handleCreateUser = async (e) => {
-        e.preventDefault();
-        setLoading(true);
-        setMessage({ type: '', text: '' });
-        try {
-            const credential = await createUserWithEmailAndPassword(tempAuth, email, password);
-            await setDoc(doc(db, 'users', credential.user.uid), { email, role, createdAt: new Date() });
-            await tempAuth.signOut();
-            setMessage({ type: 'success', text: `Successfully created ${role} user: ${email}` });
-            setEmail('');
-            setPassword('');
-        } catch (error) {
-            console.error(error);
-            setMessage({ type: 'danger', text: error.message });
-        }
-        setLoading(false);
-    };
-
-    return (
-        <div className="box" style={{ maxWidth: '560px' }}>
-            {message.text && (
-                <div className={`notification is-${message.type} is-light mb-4`}>
-                    <button className="delete" onClick={() => setMessage({ type: '', text: '' })}></button>
-                    {message.text}
-                </div>
-            )}
-            <form onSubmit={handleCreateUser}>
-                <div className="field">
-                    <label className="label">New User Email</label>
-                    <div className="control">
-                        <input className="input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required placeholder="staff@bakery.com" />
-                    </div>
-                </div>
-                <div className="field">
-                    <label className="label">Temporary Password <span className="has-text-grey">(min 6 chars)</span></label>
-                    <div className="control">
-                        <input className="input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength="6" placeholder="••••••••" />
-                    </div>
-                </div>
-                <div className="field">
-                    <label className="label">Role</label>
-                    <div className="control">
-                        <div className="select is-fullwidth">
-                            <select value={role} onChange={(e) => setRole(e.target.value)}>
-                                <option value="staff">Staff — Sales, Waste, View</option>
-                                <option value="admin">Admin — Full Access, P&L, Ledgers</option>
-                            </select>
-                        </div>
-                    </div>
-                </div>
-                <div className="field mt-5">
-                    <button
-                        className={`button is-primary is-fullwidth ${loading ? 'is-loading' : ''}`}
-                        type="submit"
-                        disabled={loading || password.length < 6}
-                        style={{ height: '52px', fontSize: '1rem' }}
-                    >
-                        <span className="icon"><UserPlusBold size={18} /></span>
-                        <span>Create System User</span>
-                    </button>
-                </div>
-            </form>
-        </div>
-    );
-}
 
 export default function AdminDashboard() {
     const [activeTab, setActiveTab] = useState('users');
@@ -126,7 +54,7 @@ export default function AdminDashboard() {
             </div>
 
             {/* Tab content */}
-            {activeTab === 'users' && <CreateUserPanel />}
+            {activeTab === 'users' && <UserManager />}
             {activeTab === 'items' && <ItemManager />}
             {activeTab === 'customers' && <CustomerManager />}
             {activeTab === 'vendors' && <VendorManager />}

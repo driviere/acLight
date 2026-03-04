@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { collection, getDocs } from 'firebase/firestore';
+import { collection, getDocs, addDoc, Timestamp } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { useAuth } from '../../contexts/AuthContext';
 import { toDollarsData, isBalanced } from '../../utils/moneyUtils';
 import { useToast } from '../../App';
 import Select from 'react-select';
+import CreatableSelect from 'react-select/creatable';
 import { CartLargeMinimalisticBold, AddCircleBold, MinusCircleBold, BoxBold, NotesBold, ArrowLeftBold, HandMoneyBold } from 'solar-icon-set';
 
 export default function POSCart({ saleType, goBack }) {
@@ -13,6 +14,7 @@ export default function POSCart({ saleType, goBack }) {
     const [customers, setCustomers] = useState([]);
     const [cart, setCart] = useState([]);
     const [selectedCustomer, setSelectedCustomer] = useState(null);
+    const [creatingCustomer, setCreatingCustomer] = useState(false);
     const [loading, setLoading] = useState(true);
     const [processing, setProcessing] = useState(false);
     const [error, setError] = useState('');
@@ -44,6 +46,28 @@ export default function POSCart({ saleType, goBack }) {
     const allItemsOptions = items.map(i => ({ value: i.id, label: `${i.name} — $${toDollarsData(i.price_cents)}`, item: i }));
     const cartCount = cart.reduce((sum, c) => sum + c.quantity, 0);
 
+    // ── Inline Customer Creation ──────────────────────────────
+    const handleCreateCustomer = async (inputName) => {
+        const name = inputName.trim();
+        if (!name) return;
+        setCreatingCustomer(true);
+        try {
+            const docRef = await addDoc(collection(db, 'customers'), {
+                name,
+                createdAt: Timestamp.now(),
+                createdBy: currentUser.uid,
+            });
+            const newOption = { value: docRef.id, label: name };
+            setCustomers(prev => [...prev, newOption].sort((a, b) => a.label.localeCompare(b.label)));
+            setSelectedCustomer(newOption);
+            showToast(`✅ Customer "${name}" created and selected!`, 'success', 2500);
+        } catch (err) {
+            console.error('Failed to create customer:', err);
+            setError(`Failed to create customer: ${err.message}`);
+        }
+        setCreatingCustomer(false);
+    };
+
     const handleAddToCart = (item) => {
         setCart(prev => {
             const existing = prev.find(c => c.id === item.id);
@@ -64,6 +88,14 @@ export default function POSCart({ saleType, goBack }) {
 
     const handleRemoveFromCart = (id) => {
         setCart(prev => prev.filter(c => c.id !== id));
+    };
+
+    const handleSetQuantity = (id, rawValue) => {
+        // Allow clearing the field while typing (store as empty string temporarily)
+        if (rawValue === '' || rawValue === '0') return;
+        const parsed = parseInt(rawValue, 10);
+        if (isNaN(parsed) || parsed < 1) return;
+        setCart(prev => prev.map(c => c.id === id ? { ...c, quantity: parsed } : c));
     };
 
     const cartTotalCents = cart.reduce((sum, item) => sum + (item.price_cents * item.quantity), 0);
@@ -159,12 +191,21 @@ export default function POSCart({ saleType, goBack }) {
                         <span className="icon mr-1"><BoxBold size={14} /></span>
                         Customer Account <span className="has-text-danger">*</span>
                     </label>
-                    <Select
+                    <CreatableSelect
                         options={customers}
                         value={selectedCustomer}
                         onChange={setSelectedCustomer}
-                        placeholder="Search for customer..."
+                        onCreateOption={handleCreateCustomer}
+                        isLoading={creatingCustomer}
+                        isDisabled={creatingCustomer}
+                        placeholder="Search or type a new customer name..."
                         isClearable
+                        formatCreateLabel={(inputValue) => (
+                            <span>
+                                <strong>➕ Add new customer:</strong> "{inputValue}"
+                            </span>
+                        )}
+                        noOptionsMessage={() => 'Type a customer name to search or create'}
                     />
                     <p className="help mt-2">Add customers via the Admin → Customers section.</p>
                 </div>
@@ -266,7 +307,14 @@ export default function POSCart({ saleType, goBack }) {
                                                             <button className="button is-small" onClick={() => handleUpdateQuantity(c.id, -1)}><MinusCircleBold size={14} /></button>
                                                         </p>
                                                         <p className="control">
-                                                            <input className="input is-small has-text-centered" readOnly value={c.quantity} style={{ width: '38px' }} />
+                                                            <input
+                                                                className="input is-small has-text-centered"
+                                                                type="number"
+                                                                min="1"
+                                                                value={c.quantity}
+                                                                onChange={(e) => handleSetQuantity(c.id, e.target.value)}
+                                                                style={{ width: '52px' }}
+                                                            />
                                                         </p>
                                                         <p className="control">
                                                             <button className="button is-small" onClick={() => handleUpdateQuantity(c.id, 1)}><AddCircleBold size={14} /></button>

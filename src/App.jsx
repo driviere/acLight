@@ -9,6 +9,7 @@ import SalesTracker from './components/modules/SalesTracker';
 import ExpenseLogger from './components/modules/ExpenseLogger';
 import OutstandingMonitor from './components/modules/OutstandingMonitor';
 import WasteTracker from './components/modules/WasteTracker';
+import TopLevelBar from './components/modules/TopLevelBar';
 import './App.css';
 
 const Navigation = () => {
@@ -68,6 +69,8 @@ const MainDashboard = () => {
           </button>
         </div>
       )}
+
+      {isAdmin && <TopLevelBar />}
 
       <OutstandingMonitor />
 

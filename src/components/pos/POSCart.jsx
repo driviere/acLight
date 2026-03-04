@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { collection, getDocs, doc, writeBatch, Timestamp } from 'firebase/firestore';
+import { collection, getDocs } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { useAuth } from '../../contexts/AuthContext';
 import { toDollarsData, isBalanced } from '../../utils/moneyUtils';
 import Select from 'react-select';
-import { HandMoneyBold, CartLargeMinimalisticBold, TrashBinMinimalisticBold, AddCircleBold, MinusCircleBold, NotesBold } from 'solar-icon-set';
+import { HandMoneyBold, CartLargeMinimalisticBold, TrashBinMinimalisticBold, AddCircleBold, MinusCircleBold, NotesBold, BoxBold } from 'solar-icon-set';
 
 export default function POSCart({ saleType, goBack }) {
     const { currentUser } = useAuth();
@@ -105,41 +105,12 @@ export default function POSCart({ saleType, goBack }) {
                 throw new Error("Critical Error: Journal entry not balanced.");
             }
 
-            // 2. Prepare Firestore Batch
-            const batch = writeBatch(db);
-            const journalRef = doc(collection(db, 'journal_entries'));
+            // 2. Create the journal entry via our robust atomic service
+            const { createJournalEntry } = await import('../../services/journalService');
 
             const status = saleType === 'cash' ? 'paid' : 'unpaid';
             const outstanding = saleType === 'cash' ? 0 : cartTotalCents;
-
-            // Create nice metadata items string for the receipt
             const itemsMeta = cart.map(c => `${c.quantity}x ${c.name}`).join(', ');
-
-            batch.set(journalRef, {
-                date: Timestamp.now(),
-                type: 'sale',
-                status: status,
-                ref_no: `POS-${Date.now()}`,
-                total_cents: cartTotalCents,
-                outstanding_cents: outstanding,
-                lines,
-                metadata: {
-                    created_by: currentUser.uid,
-                    type: saleType === 'cash' ? 'pos_cash' : 'pos_credit',
-                    customer_name: selectedCustomer ? selectedCustomer.label : 'Walk-in Customer',
-                    customer_id: selectedCustomer ? selectedCustomer.value : null,
-                    items_summary: itemsMeta
-                }
-            });
-
-            // 3. Update Chart of Accounts Balances
-            // Because this is a lightweight POS transaction and we want speed, we will assume standard accounts exist.
-            // In a production environment, you should read them in a transaction first as done in journalService.js.
-            // For the sake of this UI POS speed constraint, we delegate robust updates to the unified journal service.
-
-            // (Wait, we should stick to using our robust journalService.js to maintain integrity!)
-            // Let's import createJournalEntry dynamically inside the component to avoid circular deps.
-            const { createJournalEntry } = await import('../../services/journalService');
 
             await createJournalEntry(
                 'sale',

@@ -15,11 +15,18 @@ export default function ItemManager() {
     const [revenueAccount, setRevenueAccount] = useState('4000_revenue');
     const [isQuickAccess, setIsQuickAccess] = useState(false);
 
+    // Editing state
+    const [editingId, setEditingId] = useState(null);
+    const [editForm, setEditForm] = useState({});
+    const [savingId, setSavingId] = useState(null);
+
     const fetchItems = async () => {
         setLoading(true);
         try {
             const querySnapshot = await getDocs(collection(db, 'items'));
-            const itemsList = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            const itemsList = querySnapshot.docs
+                .map(doc => ({ id: doc.id, ...doc.data() }))
+                .filter(item => item.type !== 'bundle'); // Filter out bundles
             setItems(itemsList.sort((a, b) => a.name.localeCompare(b.name)));
         } catch (error) {
             console.error(error);
@@ -62,6 +69,37 @@ export default function ItemManager() {
             await deleteDoc(doc(db, 'items', id));
             fetchItems();
         }
+    };
+
+    const handleEditClick = (item) => {
+        setEditingId(item.id);
+        setEditForm({
+            name: item.name,
+            sku: item.sku || '',
+            price: (item.price_cents / 100).toFixed(2),
+            revenue_account: item.revenue_account || '4000_revenue',
+            is_quick_access: item.is_quick_access || false
+        });
+    };
+
+    const handleSaveEdit = async () => {
+        if (!editForm.name || !editForm.price) return;
+        setSavingId(editingId);
+        try {
+            await updateDoc(doc(db, 'items', editingId), {
+                name: editForm.name,
+                sku: editForm.sku,
+                price_cents: toCents(editForm.price),
+                revenue_account: editForm.revenue_account,
+                is_quick_access: editForm.is_quick_access
+            });
+            setEditingId(null);
+            fetchItems();
+        } catch (err) {
+            console.error(err);
+            alert("Error saving item");
+        }
+        setSavingId(null);
     };
 
     return (
@@ -129,16 +167,45 @@ export default function ItemManager() {
                         <tbody>
                             {items.map(item => (
                                 <tr key={item.id}>
-                                    <td>{item.name}</td>
-                                    <td>{item.sku}</td>
-                                    <td>${toDollarsData(item.price_cents)}</td>
-                                    <td className="is-size-7 has-text-grey">{item.revenue_account || '4000_revenue'}</td>
-                                    <td>{item.is_quick_access ? <span className="tag is-success">Yes</span> : <span className="tag is-light">No</span>}</td>
-                                    <td>
-                                        <button className="button is-danger is-small is-light" onClick={() => handleDelete(item.id)}>
-                                            <span className="icon"><TrashBinMinimalisticBold size={14} /></span>
-                                        </button>
-                                    </td>
+                                    {editingId === item.id ? (
+                                        <>
+                                            <td><input className="input is-small" value={editForm.name} onChange={e => setEditForm(prev => ({ ...prev, name: e.target.value }))} /></td>
+                                            <td><input className="input is-small" value={editForm.sku} onChange={e => setEditForm(prev => ({ ...prev, sku: e.target.value }))} /></td>
+                                            <td><input className="input is-small" type="number" step="0.01" value={editForm.price} onChange={e => setEditForm(prev => ({ ...prev, price: e.target.value }))} /></td>
+                                            <td>
+                                                <div className="select is-small is-fullwidth">
+                                                    <select value={editForm.revenue_account} onChange={e => setEditForm(prev => ({ ...prev, revenue_account: e.target.value }))}>
+                                                        {revenueAccounts.map(a => <option key={a.id} value={a.id}>{a.id}</option>)}
+                                                    </select>
+                                                </div>
+                                            </td>
+                                            <td><input type="checkbox" checked={editForm.is_quick_access} onChange={e => setEditForm(prev => ({ ...prev, is_quick_access: e.target.checked }))} /></td>
+                                            <td>
+                                                <div className="buttons are-small">
+                                                    <button className={`button is-success ${savingId === item.id ? 'is-loading' : ''}`} onClick={handleSaveEdit}>Save</button>
+                                                    <button className="button is-light" onClick={() => setEditingId(null)}>Cancel</button>
+                                                </div>
+                                            </td>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <td>{item.name}</td>
+                                            <td>{item.sku}</td>
+                                            <td>${toDollarsData(item.price_cents)}</td>
+                                            <td className="is-size-7 has-text-grey">{item.revenue_account || '4000_revenue'}</td>
+                                            <td>{item.is_quick_access ? <span className="tag is-success">Yes</span> : <span className="tag is-light">No</span>}</td>
+                                            <td>
+                                                <div className="buttons are-small">
+                                                    <button className="button is-info is-small is-light" onClick={() => handleEditClick(item)}>
+                                                        <span className="icon"><PenBold size={14} /></span>
+                                                    </button>
+                                                    <button className="button is-danger is-small is-light" onClick={() => handleDelete(item.id)}>
+                                                        <span className="icon"><TrashBinMinimalisticBold size={14} /></span>
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </>
+                                    )}
                                 </tr>
                             ))}
                         </tbody>

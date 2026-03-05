@@ -1,12 +1,10 @@
 import React, { useState } from 'react';
 import { db } from '../../firebase';
-import { doc, setDoc } from 'firebase/firestore';
-import { getAuth, createUserWithEmailAndPassword } from 'firebase/auth';
-import { initializeApp } from 'firebase/app';
-import { UserPlusBold, BoxBold, UsersGroupTwoRoundedBold, BuildingsBold, SettingsBold, ChartBold } from 'solar-icon-set';
+import { UserPlusBold, BoxBold, UsersGroupTwoRoundedBold, BuildingsBold, SettingsBold, ChartBold, LayersBold } from 'solar-icon-set';
 import CustomerManager from './CustomerManager';
 import VendorManager from './VendorManager';
 import ItemManager from './ItemManager';
+import BundleManager from './BundleManager';
 import UserManager from './UserManager';
 import AccountManager from './AccountManager';
 import { PageHeader } from '../../App';
@@ -25,6 +23,7 @@ const tempAuth = getAuth(tempApp);
 const TABS = [
     { id: 'users', label: 'Users', icon: <UserPlusBold size={16} /> },
     { id: 'items', label: 'Items', icon: <BoxBold size={16} /> },
+    { id: 'bundles', label: 'Bundles', icon: <LayersBold size={16} /> },
     { id: 'customers', label: 'Customers', icon: <UsersGroupTwoRoundedBold size={16} /> },
     { id: 'vendors', label: 'Vendors', icon: <BuildingsBold size={16} /> },
     { id: 'accounts', label: 'Accounts', icon: <ChartBold size={16} /> },
@@ -58,6 +57,7 @@ export default function AdminDashboard() {
             {/* Tab content */}
             {activeTab === 'users' && <UserManager />}
             {activeTab === 'items' && <ItemManager />}
+            {activeTab === 'bundles' && <BundleManager />}
             {activeTab === 'customers' && <CustomerManager />}
             {activeTab === 'vendors' && <VendorManager />}
             {activeTab === 'accounts' && <AccountManager />}

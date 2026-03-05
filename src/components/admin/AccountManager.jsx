@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { getAllAccounts, addAccount, updateAccount } from '../../services/accountService';
+import { getAllAccounts, addAccount, updateAccount, seedChartOfAccounts } from '../../services/accountService';
 import { toDollarsData } from '../../utils/moneyUtils';
-import { ChartBold, AddCircleBold, PenBold, CheckSquareBold, CloseSquareBold } from 'solar-icon-set';
+import { ChartBold, AddCircleBold, PenBold, CheckSquareBold, CloseSquareBold, DatabaseBold } from 'solar-icon-set';
 
 const TYPE_ORDER = ['asset', 'liability', 'equity', 'revenue', 'expense'];
 const TYPE_COLORS = {
@@ -25,6 +25,7 @@ export default function AccountManager() {
     const [editingId, setEditingId] = useState(null);
     const [editName, setEditName] = useState('');
     const [saving, setSaving] = useState(false);
+    const [seeding, setSeeding] = useState(false);
     const [error, setError] = useState('');
 
     // New account form state
@@ -88,6 +89,23 @@ export default function AccountManager() {
         setAdding(false);
     };
 
+    const handleSeed = async () => {
+        if (!window.confirm('This will seed the default Chart of Accounts. Only runs if the database is empty. Continue?')) return;
+        setSeeding(true);
+        setError('');
+        try {
+            const seeded = await seedChartOfAccounts();
+            if (seeded) {
+                fetchAccounts();
+            } else {
+                setError('Accounts already exist. Clear the \'accounts\' collection first to re-seed.');
+            }
+        } catch (e) {
+            setError(e.message);
+        }
+        setSeeding(false);
+    };
+
     // Group accounts by type
     const grouped = TYPE_ORDER.reduce((acc, type) => {
         acc[type] = accounts.filter(a => a.type === type);
@@ -96,11 +114,28 @@ export default function AccountManager() {
 
     return (
         <div className="box">
-            <h2 className="title is-4" style={{ color: '#1a202c' }}>
-                <span className="icon mr-2"><ChartBold size={24} /></span>
-                Chart of Accounts
-            </h2>
-            <p className="subtitle is-6 mb-5">Manage the accounts used for double-entry bookkeeping. Add custom accounts or deactivate ones you don't need.</p>
+            <div className="level mb-4">
+                <div className="level-left">
+                    <div>
+                        <h2 className="title is-4 mb-1" style={{ color: '#1a202c' }}>
+                            <span className="icon mr-2"><ChartBold size={24} /></span>
+                            Chart of Accounts
+                        </h2>
+                        <p className="subtitle is-6">Manage accounts used for double-entry bookkeeping.</p>
+                    </div>
+                </div>
+                <div className="level-right">
+                    <button
+                        className={`button is-warning is-light ${seeding ? 'is-loading' : ''}`}
+                        onClick={handleSeed}
+                        disabled={seeding}
+                        title="Seeds the default general-purpose Chart of Accounts (only works on empty collection)"
+                    >
+                        <span className="icon"><DatabaseBold size={16} /></span>
+                        <span>Seed Default Accounts</span>
+                    </button>
+                </div>
+            </div>
 
             {error && <div className="notification is-danger is-light mb-4">{error}</div>}
 

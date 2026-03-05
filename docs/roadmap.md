@@ -14,6 +14,7 @@
 ## Phase 3: Authentication & User Management
 - [ ] Develop Admin dashboard for user creation.
 - [ ] Implement Role-Based Access Control (RBAC) for Admin vs. Staff.
+- [ ] Build admin console for logo, company name, and category management.
 - [ ] Build login/logout flow.
 
 ## Phase 4: Transaction Engine (Double-Entry)
@@ -25,14 +26,18 @@
 - [ ] Develop Sales Tracker (quick-entry for daily sales).
 - [ ] Develop Bill & Expense Logger (capturing and categorizing invoices).
 - [ ] Develop Outstanding Monitor dashboard cards.
-- [ ] Develop Inventory & Waste tracking.
+- [ ] Develop Inventory & Waste tracking (with expanded item details).
 
 ## Phase 6: UI/UX Implementation
 - [ ] Implement Top Level Bar (Assets vs Liabilities).
 - [ ] Apply standardized color coding (Success/Green, Danger/Red, Link/Blue).
 - [ ] Ensure all action buttons are large and touch-friendly for tablets.
+- [ ] Implement site-wide templating system.
 
 ## Phase 7: Testing & Deployment
 - [ ] Conduct rigorous testing of accounting logic (no floating point errors).
 - [ ] User testing with bakery staff.
 - [ ] Production deployment.
+
+## Known Bugs & Issues
+- [ ] **Incorrect Payment Type**: Payments for credit purchases (AP) are incorrectly logged as "Payment Received".

@@ -172,9 +172,10 @@ export const processInvoicePayment = async (journalId, paymentCents, paymentType
 
             // 2. Create the payment journal entry attached to this invoice
             const paymentRef = doc(collection(db, JOURNAL_COLLECTION));
+            const entryType = paymentType === 'receive' ? 'payment' : 'payment_sent';
             transaction.set(paymentRef, {
                 date: Timestamp.now(),
-                type: 'payment',
+                type: entryType,
                 status: 'paid',
                 ref_no: metadata.refNo || '',
                 total_cents: paymentCents,

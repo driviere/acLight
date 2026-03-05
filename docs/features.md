@@ -4,6 +4,7 @@
 - [ ] **Admin-Only Creation**: UI and logic for Admins to add new users via internal dashboard.
 - [ ] **Staff Role Restrictions**: Staff can only log sales, log waste, and view inventory.
 - [ ] **Admin Role Permissions**: Admins can manage users, view P&L reports, delete/edit ledger entries.
+- [ ] **Admin Console Features**: UI for modifying logo, company name, and managing item categories.
 
 ## Transaction Engine (Double-Entry)
 - [ ] **Automated Journaling**: System auto-creates `journal_entry` documents with balanced Debit/Credit lines for sales.
@@ -15,7 +16,7 @@
 - [ ] **Sales Tracker**: Screen for quick-entry of daily bread and pastry sales.
 - [ ] **Bill & Expense Logger**: Form to capture vendor invoices and categorize (Ingredients, Rent, Utilities).
 - [ ] **Outstanding Monitor**: Dashboard cards showing "Total Owed to Us" vs "Total We Owe".
-- [ ] **Inventory & Waste Tracker**: Log raw materials and "Burn/Unsold" items to adjust equity automatically.
+- [ ] **Inventory & Waste Tracker**: Log raw materials and "Burn/Unsold" items to adjust equity. Includes fields for item description, quantity, and price.
 
 ## Core Technical Requirements
 - [ ] **Money Handling**: Enforce cents-only integer logic across the entire application. No floats.
@@ -28,3 +29,4 @@
 - [ ] **Color Coding**: `has-text-danger` (Red) for Expenses/Overdue.
 - [ ] **Color Coding**: `has-text-link` (Blue) for Outstanding receivables.
 - [ ] **Action Buttons**: Large, touch-friendly buttons utilizing Solar Icons for mobile tablet use at the bakery counter.
+- [ ] **Site-Wide Templating**: Implement a system for consistent UI templates across all modules.

@@ -1,5 +1,8 @@
 import React, { useState } from 'react';
 import { db } from '../../firebase';
+import { doc, setDoc } from 'firebase/firestore';
+import { getAuth, createUserWithEmailAndPassword } from 'firebase/auth';
+import { initializeApp } from 'firebase/app';
 import { UserPlusBold, BoxBold, UsersGroupTwoRoundedBold, BuildingsBold, SettingsBold, ChartBold, LayersBold } from 'solar-icon-set';
 import CustomerManager from './CustomerManager';
 import VendorManager from './VendorManager';

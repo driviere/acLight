@@ -1,5 +1,8 @@
 # Bakery Ledger - Ignored Files
 
+# Agent folder
+.agent/
+
 # Ignore all markdown files by default
 *.md
 

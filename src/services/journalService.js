@@ -1,4 +1,4 @@
-import { collection, doc, runTransaction, Timestamp } from 'firebase/firestore';
+import { collection, doc, runTransaction, Timestamp, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase';
 import { isBalanced } from '../utils/moneyUtils';
 
@@ -113,14 +113,76 @@ export const createJournalEntry = async (
     }
 };
 
-export const updatePaymentStatus = async (journalId, newStatus, newOutstandingCents) => {
-    const journalRef = doc(db, JOURNAL_COLLECTION, journalId);
-    await runTransaction(db, async (transaction) => {
-        transaction.update(journalRef, {
-            status: newStatus,
-            outstanding_cents: newOutstandingCents
+/**
+ * Voids a journal entry by atomically reversing all account balance effects.
+ * The original entry is preserved for audit — only status and metadata change.
+ * 
+ * @param {string} journalId - ID of the journal entry to void
+ * @param {string} userId - UID of the user performing the void
+ */
+export const voidJournalEntry = async (journalId, userId) => {
+    try {
+        await runTransaction(db, async (transaction) => {
+            // --- READ PHASE ---
+            const journalRef = doc(db, JOURNAL_COLLECTION, journalId);
+            const journalSnap = await transaction.get(journalRef);
+
+            if (!journalSnap.exists()) {
+                throw new Error('Journal entry not found.');
+            }
+
+            const journalData = journalSnap.data();
+
+            if (journalData.status === 'void') {
+                throw new Error('This entry has already been voided.');
+            }
+
+            // Read all accounts referenced in the original lines
+            const lines = journalData.lines || [];
+            const accountSnaps = [];
+            for (const line of lines) {
+                const accountRef = doc(db, ACCOUNTS_COLLECTION, line.account_id);
+                const snap = await transaction.get(accountRef);
+                if (!snap.exists()) {
+                    throw new Error(`Account ${line.account_id} does not exist.`);
+                }
+                accountSnaps.push({ snap, line });
+            }
+
+            // --- WRITE PHASE ---
+            // 1. Reverse account balance effects (swap debit/credit direction)
+            for (const { snap, line } of accountSnaps) {
+                const accountData = snap.data();
+                let currentBalance = accountData.balance || 0;
+
+                if (isDebitNormal(accountData.type)) {
+                    // Original: +debit, -credit  →  Reverse: -debit, +credit
+                    currentBalance -= line.debit;
+                    currentBalance += line.credit;
+                } else {
+                    // Original: +credit, -debit  →  Reverse: -credit, +debit
+                    currentBalance -= line.credit;
+                    currentBalance += line.debit;
+                }
+
+                transaction.update(snap.ref, { balance: currentBalance });
+            }
+
+            // 2. Mark the journal entry as voided
+            transaction.update(journalRef, {
+                status: 'void',
+                outstanding_cents: 0,
+                metadata: {
+                    ...journalData.metadata,
+                    voided_at: Timestamp.now(),
+                    voided_by: userId,
+                }
+            });
         });
-    });
+    } catch (error) {
+        console.error('Void transaction failed: ', error);
+        throw error;
+    }
 };
 
 /**

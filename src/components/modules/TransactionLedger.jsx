@@ -2,8 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { collection, getDocs, doc, updateDoc, orderBy, query } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { toDollarsData } from '../../utils/moneyUtils';
+import { voidJournalEntry } from '../../services/journalService';
+import { useAuth } from '../../contexts/AuthContext';
 import { PageHeader } from '../../App';
-import { BookmarkBold, DocumentTextBold, NotesBold, CheckSquareBold, CloseSquareBold } from 'solar-icon-set';
+import { BookmarkBold, DocumentTextBold, NotesBold, CheckSquareBold, CloseSquareBold, TrashBinTrashBold } from 'solar-icon-set';
 
 const TYPE_LABELS = {
     sale: 'Sale (Legacy)',
@@ -89,10 +91,13 @@ function ReferenceEditor({ entry, onSaved }) {
 }
 
 export default function TransactionLedger() {
+    const { currentUser } = useAuth();
     const [entries, setEntries] = useState([]);
     const [loading, setLoading] = useState(true);
     const [expandedId, setExpandedId] = useState(null);
     const [editingRefId, setEditingRefId] = useState(null);
+    const [voidTarget, setVoidTarget] = useState(null);
+    const [voiding, setVoiding] = useState(false);
 
     // Filters
     const [filterType, setFilterType] = useState('all');
@@ -236,7 +241,10 @@ export default function TransactionLedger() {
                                 return (
                                     <React.Fragment key={entry.id}>
                                         <tr
-                                            style={{ cursor: 'pointer' }}
+                                            style={{
+                                                cursor: 'pointer',
+                                                ...(entry.status === 'void' ? { opacity: 0.45, textDecoration: 'line-through' } : {})
+                                            }}
                                             onClick={() => toggleExpand(entry.id)}
                                             className={isExpanded ? 'has-background-light' : ''}
                                         >
@@ -311,13 +319,23 @@ export default function TransactionLedger() {
                                                             onSaved={() => { setEditingRefId(null); fetchEntries(); }}
                                                         />
                                                     ) : (
-                                                        <button
-                                                            className="button is-small is-info is-light mt-2"
-                                                            onClick={(e) => { e.stopPropagation(); setEditingRefId(entry.id); }}
-                                                        >
-                                                            <span className="icon"><NotesBold size={13} /></span>
-                                                            <span>{hasRef ? 'Edit Reference / Notes' : 'Attach Reference / Notes'}</span>
-                                                        </button>
+                                                        <div className="buttons mt-2">
+                                                            <button
+                                                                className="button is-small is-info is-light"
+                                                                onClick={(e) => { e.stopPropagation(); setEditingRefId(entry.id); }}
+                                                            >
+                                                                <span className="icon"><NotesBold size={13} /></span>
+                                                                <span>{hasRef ? 'Edit Reference / Notes' : 'Attach Reference / Notes'}</span>
+                                                            </button>
+                                                            <button
+                                                                className="button is-small is-danger is-light"
+                                                                disabled={entry.status === 'void'}
+                                                                onClick={(e) => { e.stopPropagation(); setVoidTarget(entry); }}
+                                                            >
+                                                                <span className="icon"><TrashBinTrashBold size={13} /></span>
+                                                                <span>{entry.status === 'void' ? 'Voided' : 'Void Entry'}</span>
+                                                            </button>
+                                                        </div>
                                                     )}
                                                 </td>
                                             </tr>
@@ -341,6 +359,50 @@ export default function TransactionLedger() {
                             </tr>
                         </tfoot>
                     </table>
+                </div>
+            )}
+            {/* ── Void Confirmation Modal ── */}
+            {voidTarget && (
+                <div className="modal is-active">
+                    <div className="modal-background" onClick={() => setVoidTarget(null)}></div>
+                    <div className="modal-card" style={{ maxWidth: '480px' }}>
+                        <header className="modal-card-head has-background-danger-light">
+                            <p className="modal-card-title has-text-danger has-text-weight-bold">
+                                <span className="icon mr-2"><TrashBinTrashBold size={20} /></span>
+                                Void Journal Entry
+                            </p>
+                            <button className="delete" aria-label="close" onClick={() => setVoidTarget(null)}></button>
+                        </header>
+                        <section className="modal-card-body">
+                            <p>Are you sure you want to void this entry?</p>
+                            <p className="mt-3"><strong>Type:</strong> {TYPE_LABELS[voidTarget.type] || voidTarget.type}</p>
+                            <p><strong>Amount:</strong> ${toDollarsData(voidTarget.total_cents)}</p>
+                            <div className="notification is-warning is-light mt-4 mb-0">
+                                This will <strong>reverse all account balance effects</strong>. The entry will remain visible for audit purposes.
+                            </div>
+                        </section>
+                        <footer className="modal-card-foot">
+                            <button
+                                className={`button is-danger ${voiding ? 'is-loading' : ''}`}
+                                disabled={voiding}
+                                onClick={async () => {
+                                    setVoiding(true);
+                                    try {
+                                        await voidJournalEntry(voidTarget.id, currentUser.uid);
+                                        setVoidTarget(null);
+                                        fetchEntries();
+                                    } catch (err) {
+                                        console.error(err);
+                                        alert('Void failed: ' + err.message);
+                                    }
+                                    setVoiding(false);
+                                }}
+                            >
+                                Yes, Void This Entry
+                            </button>
+                            <button className="button" onClick={() => setVoidTarget(null)}>Cancel</button>
+                        </footer>
+                    </div>
                 </div>
             )}
         </div>

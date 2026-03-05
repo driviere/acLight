@@ -109,9 +109,18 @@ export default function POSCart({ saleType, goBack }) {
 
         try {
             const debitAccount = saleType === 'cash' ? '1000_cash' : '1200_ar';
+
+            // Group items by their revenue_account and build one credit line per account
+            const revenueGroups = {};
+            cart.forEach(c => {
+                const acct = c.revenue_account || '4000_revenue';
+                revenueGroups[acct] = (revenueGroups[acct] || 0) + (c.price_cents * c.quantity);
+            });
             const lines = [
                 { account_id: debitAccount, debit: cartTotalCents, credit: 0 },
-                { account_id: '4000_sales_bread', debit: 0, credit: cartTotalCents }
+                ...Object.entries(revenueGroups).map(([acct, cents]) => (
+                    { account_id: acct, debit: 0, credit: cents }
+                ))
             ];
 
             if (!isBalanced(lines.map(l => l.debit - l.credit))) throw new Error("Journal entry not balanced.");

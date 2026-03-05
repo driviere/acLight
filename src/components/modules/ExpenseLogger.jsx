@@ -3,6 +3,7 @@ import { collection, getDocs, addDoc, Timestamp } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { useAuth } from '../../contexts/AuthContext';
 import { createJournalEntry } from '../../services/journalService';
+import { getAllAccounts } from '../../services/accountService';
 import { toCents } from '../../utils/moneyUtils';
 import { useToast } from '../../App';
 import CreatableSelect from 'react-select/creatable';
@@ -11,6 +12,7 @@ import { BillBold, AddCircleBold } from 'solar-icon-set';
 export default function ExpenseLogger() {
     const { currentUser } = useAuth();
     const [vendors, setVendors] = useState([]);
+    const [expenseAccounts, setExpenseAccounts] = useState([]);
     const [selectedVendor, setSelectedVendor] = useState(null);
     const [creatingVendor, setCreatingVendor] = useState(false);
     const [amount, setAmount] = useState('');
@@ -21,12 +23,16 @@ export default function ExpenseLogger() {
     const { showToast, ToastComponent } = useToast();
 
     useEffect(() => {
-        const fetchVendors = async () => {
-            const snap = await getDocs(collection(db, 'vendors'));
-            const list = snap.docs.map(doc => ({ value: doc.id, label: doc.data().name }));
+        const fetchData = async () => {
+            const [vendorSnap, allAccounts] = await Promise.all([
+                getDocs(collection(db, 'vendors')),
+                getAllAccounts()
+            ]);
+            const list = vendorSnap.docs.map(doc => ({ value: doc.id, label: doc.data().name }));
             setVendors(list.sort((a, b) => a.label.localeCompare(b.label)));
+            setExpenseAccounts(allAccounts.filter(a => a.type === 'expense' && a.active !== false));
         };
-        fetchVendors();
+        fetchData();
     }, []);
 
     const handleCreateVendor = async (inputName) => {
@@ -79,8 +85,11 @@ export default function ExpenseLogger() {
 
             const outstanding = status === 'unpaid' ? totalCents : 0;
 
+            // Issue #4 fix: COGS-type accounts → 'purchase'; operating expenses → 'expense'
+            const journalType = expenseAccount.startsWith('5000') ? 'purchase' : 'expense';
+
             await createJournalEntry(
-                'purchase',
+                journalType,
                 status,
                 `VEND-${Date.now()}`,
                 totalCents,
@@ -180,10 +189,17 @@ export default function ExpenseLogger() {
                             <div className="control">
                                 <div className="select is-large is-fullwidth">
                                     <select value={expenseAccount} onChange={(e) => setExpenseAccount(e.target.value)}>
-                                        <option value="5000_cogs">Ingredients (COGS)</option>
-                                        <option value="6000_rent">Rent / Lease</option>
-                                        <option value="6100_utilities">Utilities</option>
-                                        <option value="6200_payroll">Payroll</option>
+                                        {expenseAccounts.length === 0 ? (
+                                            <>
+                                                <option value="5000_cogs">Cost of Goods Sold</option>
+                                                <option value="5100_operating">Operating Expenses</option>
+                                                <option value="6000_rent">Rent &amp; Lease</option>
+                                                <option value="6100_utilities">Utilities</option>
+                                                <option value="6200_payroll">Payroll</option>
+                                            </>
+                                        ) : expenseAccounts.map(a => (
+                                            <option key={a.id} value={a.id}>{a.name}</option>
+                                        ))}
                                     </select>
                                 </div>
                             </div>

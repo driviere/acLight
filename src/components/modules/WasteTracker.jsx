@@ -25,10 +25,10 @@ export default function WasteTracker() {
             }
 
             // Waste tracking hits Equity or Inventory constraints.
-            // Debit: Waste Expense
+            // Debit: Operating Expenses (waste is an operating cost)
             // Credit: Inventory Asset
             const lines = [
-                { account_id: '5100_waste', debit: wasteCents, credit: 0 },
+                { account_id: '5100_operating', debit: wasteCents, credit: 0 },
                 { account_id: '1400_inventory', debit: 0, credit: wasteCents }
             ];
 

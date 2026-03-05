@@ -3,11 +3,12 @@ import { db } from '../../firebase';
 import { doc, setDoc } from 'firebase/firestore';
 import { getAuth, createUserWithEmailAndPassword } from 'firebase/auth';
 import { initializeApp } from 'firebase/app';
-import { UserPlusBold, BoxBold, UsersGroupTwoRoundedBold, BuildingsBold, SettingsBold } from 'solar-icon-set';
+import { UserPlusBold, BoxBold, UsersGroupTwoRoundedBold, BuildingsBold, SettingsBold, ChartBold } from 'solar-icon-set';
 import CustomerManager from './CustomerManager';
 import VendorManager from './VendorManager';
 import ItemManager from './ItemManager';
 import UserManager from './UserManager';
+import AccountManager from './AccountManager';
 import { PageHeader } from '../../App';
 
 // Secondary Firebase app for creating users without logging out current admin.
@@ -26,6 +27,7 @@ const TABS = [
     { id: 'items', label: 'Items', icon: <BoxBold size={16} /> },
     { id: 'customers', label: 'Customers', icon: <UsersGroupTwoRoundedBold size={16} /> },
     { id: 'vendors', label: 'Vendors', icon: <BuildingsBold size={16} /> },
+    { id: 'accounts', label: 'Accounts', icon: <ChartBold size={16} /> },
 ];
 
 export default function AdminDashboard() {
@@ -58,6 +60,7 @@ export default function AdminDashboard() {
             {activeTab === 'items' && <ItemManager />}
             {activeTab === 'customers' && <CustomerManager />}
             {activeTab === 'vendors' && <VendorManager />}
+            {activeTab === 'accounts' && <AccountManager />}
         </div>
     );
 }

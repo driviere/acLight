@@ -1,4 +1,4 @@
-import { doc, setDoc, getDoc, collection, getDocs, writeBatch } from "firebase/firestore";
+import { doc, setDoc, getDoc, collection, getDocs, writeBatch, updateDoc, Timestamp } from "firebase/firestore";
 import { db } from "../firebase";
 
 /**
@@ -12,10 +12,10 @@ const ACCOUNTS_COLLECTION = "accounts";
  */
 export const INITIAL_CHART_OF_ACCOUNTS = [
     // ASSETS (Normal Balance: Debit)
-    { id: "1000_cash", name: "Main Cash Drawer", type: "asset", balance: 0 },
-    { id: "1010_bank", name: "Business Checking Account", type: "asset", balance: 0 },
+    { id: "1000_cash", name: "Cash on Hand", type: "asset", balance: 0 },
+    { id: "1010_bank", name: "Business Bank Account", type: "asset", balance: 0 },
     { id: "1200_ar", name: "Accounts Receivable", type: "asset", balance: 0 },
-    { id: "1400_inventory", name: "Raw Materials Inventory", type: "asset", balance: 0 },
+    { id: "1400_inventory", name: "Inventory", type: "asset", balance: 0 },
 
     // LIABILITIES (Normal Balance: Credit)
     { id: "2000_ap", name: "Accounts Payable", type: "liability", balance: 0 },
@@ -26,15 +26,16 @@ export const INITIAL_CHART_OF_ACCOUNTS = [
     { id: "3900_retained", name: "Retained Earnings", type: "equity", balance: 0 },
 
     // REVENUE (Normal Balance: Credit)
-    { id: "4000_sales_bread", name: "Bread Sales", type: "revenue", balance: 0 },
-    { id: "4010_sales_pastry", name: "Pastry Sales", type: "revenue", balance: 0 },
+    { id: "4000_revenue", name: "Sales Revenue", type: "revenue", balance: 0 },
+    { id: "4100_service", name: "Service Revenue", type: "revenue", balance: 0 },
 
     // EXPENSES (Normal Balance: Debit)
-    { id: "5000_cogs", name: "Cost of Goods Sold (Ingredients)", type: "expense", balance: 0 },
-    { id: "5100_waste", name: "Spoilage & Waste", type: "expense", balance: 0 },
-    { id: "6000_rent", name: "Bakery Lease", type: "expense", balance: 0 },
-    { id: "6100_utilities", name: "Utilities & Power", type: "expense", balance: 0 },
-    { id: "6200_payroll", name: "Payroll Expense", type: "expense", balance: 0 }
+    { id: "5000_cogs", name: "Cost of Goods Sold", type: "expense", balance: 0 },
+    { id: "5100_operating", name: "Operating Expenses", type: "expense", balance: 0 },
+    { id: "6000_rent", name: "Rent & Lease", type: "expense", balance: 0 },
+    { id: "6100_utilities", name: "Utilities", type: "expense", balance: 0 },
+    { id: "6200_payroll", name: "Payroll", type: "expense", balance: 0 },
+    { id: "6300_supplies", name: "Supplies & Materials", type: "expense", balance: 0 }
 ];
 
 /**
@@ -55,9 +56,10 @@ export const seedChartOfAccounts = async () => {
         console.log("Initializing base Chart of Accounts...");
         const batch = writeBatch(db);
 
+        const now = Timestamp.now();
         INITIAL_CHART_OF_ACCOUNTS.forEach((account) => {
             const docRef = doc(db, ACCOUNTS_COLLECTION, account.id);
-            batch.set(docRef, account);
+            batch.set(docRef, { ...account, created_at: now, updated_at: now });
         });
 
         await batch.commit();
@@ -71,9 +73,32 @@ export const seedChartOfAccounts = async () => {
 };
 
 /**
- * Fetches all accounts securely from Firestore.
+ * Fetches all accounts from Firestore, sorted by ID.
  */
 export const getAllAccounts = async () => {
     const querySnapshot = await getDocs(collection(db, ACCOUNTS_COLLECTION));
-    return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    return querySnapshot.docs
+        .map(doc => ({ id: doc.id, ...doc.data() }))
+        .sort((a, b) => a.id.localeCompare(b.id));
+};
+
+/**
+ * Adds a new account to the Chart of Accounts.
+ */
+export const addAccount = async (id, name, type) => {
+    const trimmedId = id.trim().toLowerCase().replace(/\s+/g, '_');
+    if (!trimmedId || !name || !type) throw new Error('ID, name, and type are required.');
+    const docRef = doc(db, ACCOUNTS_COLLECTION, trimmedId);
+    const existing = await getDoc(docRef);
+    if (existing.exists()) throw new Error(`Account ID "${trimmedId}" already exists.`);
+    const now = Timestamp.now();
+    await setDoc(docRef, { id: trimmedId, name: name.trim(), type, balance: 0, active: true, created_at: now, updated_at: now });
+};
+
+/**
+ * Updates an account's editable fields (name, active status).
+ */
+export const updateAccount = async (id, updates) => {
+    const docRef = doc(db, ACCOUNTS_COLLECTION, id);
+    await updateDoc(docRef, { ...updates, updated_at: Timestamp.now() });
 };

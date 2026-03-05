@@ -2,14 +2,17 @@ import React, { useState, useEffect } from 'react';
 import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { toDollarsData, toCents } from '../../utils/moneyUtils';
+import { getAllAccounts } from '../../services/accountService';
 import { BoxBold, AddCircleBold, TrashBinMinimalisticBold, PenBold } from 'solar-icon-set';
 
 export default function ItemManager() {
     const [items, setItems] = useState([]);
+    const [revenueAccounts, setRevenueAccounts] = useState([]);
     const [loading, setLoading] = useState(true);
     const [name, setName] = useState('');
     const [price, setPrice] = useState('');
     const [sku, setSku] = useState('');
+    const [revenueAccount, setRevenueAccount] = useState('4000_revenue');
     const [isQuickAccess, setIsQuickAccess] = useState(false);
 
     const fetchItems = async () => {
@@ -26,6 +29,10 @@ export default function ItemManager() {
 
     useEffect(() => {
         fetchItems();
+        // Fetch revenue accounts for the dropdown
+        getAllAccounts().then(all => {
+            setRevenueAccounts(all.filter(a => a.type === 'revenue' && a.active !== false));
+        });
     }, []);
 
     const handleAdd = async (e) => {
@@ -35,11 +42,13 @@ export default function ItemManager() {
                 name,
                 price_cents: toCents(price),
                 sku: sku || name.substring(0, 4).toUpperCase(),
+                revenue_account: revenueAccount || '4000_revenue',
                 is_quick_access: isQuickAccess
             });
             setName('');
             setPrice('');
             setSku('');
+            setRevenueAccount('4000_revenue');
             setIsQuickAccess(false);
             fetchItems();
         } catch (error) {
@@ -76,6 +85,19 @@ export default function ItemManager() {
                         <label className="label">SKU (Opt)</label>
                         <input className="input" value={sku} onChange={e => setSku(e.target.value)} placeholder="WHT-MSTF" />
                     </div>
+                    <div className="column is-3">
+                        <label className="label">Revenue Account</label>
+                        <div className="select is-fullwidth">
+                            <select value={revenueAccount} onChange={e => setRevenueAccount(e.target.value)}>
+                                {revenueAccounts.length === 0
+                                    ? <option value="4000_revenue">4000_revenue (default)</option>
+                                    : revenueAccounts.map(a => (
+                                        <option key={a.id} value={a.id}>{a.id} — {a.name}</option>
+                                    ))
+                                }
+                            </select>
+                        </div>
+                    </div>
                     <div className="column is-2 is-flex is-align-items-flex-end">
                         <label className="checkbox mb-2">
                             <input type="checkbox" checked={isQuickAccess} onChange={e => setIsQuickAccess(e.target.checked)} className="mr-2" />
@@ -99,6 +121,7 @@ export default function ItemManager() {
                                 <th>Name</th>
                                 <th>SKU</th>
                                 <th>Price</th>
+                                <th>Revenue Account</th>
                                 <th>Quick Access</th>
                                 <th>Actions</th>
                             </tr>
@@ -109,6 +132,7 @@ export default function ItemManager() {
                                     <td>{item.name}</td>
                                     <td>{item.sku}</td>
                                     <td>${toDollarsData(item.price_cents)}</td>
+                                    <td className="is-size-7 has-text-grey">{item.revenue_account || '4000_revenue'}</td>
                                     <td>{item.is_quick_access ? <span className="tag is-success">Yes</span> : <span className="tag is-light">No</span>}</td>
                                     <td>
                                         <button className="button is-danger is-small is-light" onClick={() => handleDelete(item.id)}>

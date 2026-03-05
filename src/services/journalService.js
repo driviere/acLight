@@ -48,6 +48,9 @@ export const createJournalEntry = async (
     if (totalCents < 0 || outstandingCents < 0) {
         throw new Error("Transaction validation failed: Amounts cannot be negative.");
     }
+    if (outstandingCents > totalCents) {
+        throw new Error("Transaction validation failed: Outstanding cannot exceed total.");
+    }
 
     // 2. Backend Developer Constraint: Atomic Database Transaction via runTransaction
     // Transactions ensure that account balance updates are based on the latest data,
@@ -103,7 +106,7 @@ export const createJournalEntry = async (
                 }
 
                 // PERFORM THE WRITE
-                transaction.update(snap.ref, { balance: currentBalance });
+                transaction.update(snap.ref, { balance: currentBalance, updated_at: Timestamp.now() });
             }
         });
         return true;

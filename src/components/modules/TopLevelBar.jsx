@@ -48,52 +48,32 @@ export default function TopLevelBar() {
         return <div className="box has-text-centered p-3 mb-5"><span className="button is-loading is-white"></span></div>;
     }
 
+    const statItem = (icon, label, value, colorClass) => (
+        <div style={{ textAlign: 'center' }}>
+            <p className="heading is-size-7 mb-1 has-text-grey" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
+                <span className="icon is-small">{icon}</span>
+                {label}
+            </p>
+            <p className={`title is-5 ${colorClass}`} style={{ marginBottom: 0 }}>
+                ${toDollarsData(value)}
+            </p>
+        </div>
+    );
+
     return (
-        <nav className="level is-mobile box mb-5 p-4" style={{ borderRadius: '12px', borderTop: '4px solid #00d1b2' }}>
-            <div className="level-item has-text-centered">
-                <div>
-                    <p className="heading is-size-7-mobile is-size-6-tablet mb-1 has-text-grey">
-                        <span className="icon is-small mr-1"><BanknoteBold /></span>
-                        Total Assets
-                    </p>
-                    <p className="title is-size-4-mobile is-size-3-tablet has-text-success">
-                        ${toDollarsData(assetsCents)}
-                    </p>
-                </div>
+        <div className="box mb-5 p-4" style={{ borderRadius: '12px', borderTop: '4px solid #00d1b2' }}>
+            <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(2, 1fr)',
+                gap: '1rem',
+            }}
+                className="top-level-grid"
+            >
+                {statItem(<BanknoteBold />, 'Total Assets', assetsCents, 'has-text-success')}
+                {statItem(<BuildingsBold />, 'Total Liabilities', liabilitiesCents, 'has-text-danger')}
+                {statItem(<ChartSquareBold />, 'Total Revenue', revenueCents, 'has-text-primary')}
+                {statItem(<BillBold />, 'Total Expenses', expensesCents, 'has-text-warning')}
             </div>
-            <div className="level-item has-text-centered">
-                <div>
-                    <p className="heading is-size-7-mobile is-size-6-tablet mb-1 has-text-grey">
-                        <span className="icon is-small mr-1"><BuildingsBold /></span>
-                        Total Liabilities
-                    </p>
-                    <p className="title is-size-4-mobile is-size-3-tablet has-text-danger">
-                        ${toDollarsData(liabilitiesCents)}
-                    </p>
-                </div>
-            </div>
-            <div className="level-item has-text-centered">
-                <div>
-                    <p className="heading is-size-7-mobile is-size-6-tablet mb-1 has-text-grey">
-                        <span className="icon is-small mr-1"><ChartSquareBold /></span>
-                        Total Revenue
-                    </p>
-                    <p className="title is-size-4-mobile is-size-3-tablet has-text-primary">
-                        ${toDollarsData(revenueCents)}
-                    </p>
-                </div>
-            </div>
-            <div className="level-item has-text-centered">
-                <div>
-                    <p className="heading is-size-7-mobile is-size-6-tablet mb-1 has-text-grey">
-                        <span className="icon is-small mr-1"><BillBold /></span>
-                        Total Expenses
-                    </p>
-                    <p className="title is-size-4-mobile is-size-3-tablet has-text-warning">
-                        ${toDollarsData(expensesCents)}
-                    </p>
-                </div>
-            </div>
-        </nav>
+        </div>
     );
 }

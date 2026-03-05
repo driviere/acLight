@@ -48,20 +48,22 @@ export default function OutstandingMonitor() {
     }
 
     return (
-        <div className="columns is-mobile is-multiline mt-4">
-            <div className="column is-half-mobile is-6-tablet">
-                <div className="box has-background-danger-light has-text-centered p-5" style={{ borderRadius: '12px' }}>
-                    <span className="icon is-large has-text-danger mb-2"><CardSendBold size={48} /></span>
-                    <h3 className="title is-6 mb-1">Total We Owe (AP)</h3>
-                    <p className="title is-3 has-text-danger">${toDollarsData(apCents)}</p>
+        <div style={{ display: 'flex', justifyContent: 'center' }}>
+            <div className="columns is-mobile is-multiline mt-4 is-flex" style={{ alignItems: 'stretch', maxWidth: '600px', width: '100%' }}>
+                <div className="column is-half-mobile is-6-tablet" style={{ display: 'flex' }}>
+                    <div className="box has-background-danger-light has-text-centered p-3" style={{ borderRadius: '12px', width: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                        <span className="icon has-text-danger mb-1" style={{ width: '2rem', height: '2rem', margin: '0 auto' }}><CardSendBold size={32} /></span>
+                        <h3 className="title is-6 mb-1" style={{ fontSize: '0.85rem' }}>Total We Owe (AP)</h3>
+                        <p className="title is-4 has-text-danger" style={{ marginBottom: 0 }}>${toDollarsData(apCents)}</p>
+                    </div>
                 </div>
-            </div>
 
-            <div className="column is-half-mobile is-6-tablet">
-                <div className="box has-background-link-light has-text-centered p-5" style={{ borderRadius: '12px' }}>
-                    <span className="icon is-large has-text-link mb-2"><WalletBold size={48} /></span>
-                    <h3 className="title is-6 mb-1">Total Owed to Us (AR)</h3>
-                    <p className="title is-3 has-text-link">${toDollarsData(arCents)}</p>
+                <div className="column is-half-mobile is-6-tablet" style={{ display: 'flex' }}>
+                    <div className="box has-background-link-light has-text-centered p-3" style={{ borderRadius: '12px', width: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                        <span className="icon has-text-link mb-1" style={{ width: '2rem', height: '2rem', margin: '0 auto' }}><WalletBold size={32} /></span>
+                        <h3 className="title is-6 mb-1" style={{ fontSize: '0.85rem' }}>Total Owed to Us (AR)</h3>
+                        <p className="title is-4 has-text-link" style={{ marginBottom: 0 }}>${toDollarsData(arCents)}</p>
+                    </div>
                 </div>
             </div>
         </div>

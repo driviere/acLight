@@ -133,7 +133,12 @@ export default function TransactionLedger() {
 
     const totalSales = filtered.filter(e => ['sale', 'cash_sale', 'credit_sale'].includes(e.type)).reduce((s, e) => s + (e.total_cents || 0), 0);
     const totalPayments = filtered.filter(e => e.type === 'payment' || e.type === 'payment_received').reduce((s, e) => s + (e.total_cents || 0), 0);
-    const totalOverall = filtered.reduce((s, e) => s + (e.total_cents || 0), 0);
+
+    // Cash that actually came in: cash sales + payments received
+    // Legacy 'sale' type is excluded as it's ambiguous (could be cash or credit).
+    const totalCashIn = filtered
+        .filter(e => ['cash_sale', 'payment', 'payment_received'].includes(e.type))
+        .reduce((s, e) => s + (e.total_cents || 0), 0);
 
     const toggleExpand = (id) => {
         setExpandedId(prev => prev === id ? null : id);
@@ -325,12 +330,12 @@ export default function TransactionLedger() {
                             <tr>
                                 <td colSpan={3}><strong>Showing {filtered.length} transactions</strong></td>
                                 <td className="has-text-right">
-                                    <div className="is-size-7 has-text-grey">Sales: ${toDollarsData(totalSales)}</div>
-                                    <div className="is-size-7 has-text-grey">Payments: ${toDollarsData(totalPayments)}</div>
+                                    <div className="is-size-7 has-text-grey">Total Revenue: ${toDollarsData(totalSales)}</div>
+                                    <div className="is-size-7 has-text-grey">Payments Received: ${toDollarsData(totalPayments)}</div>
                                 </td>
-                                <td className="has-text-right has-text-weight-bold has-text-primary">
-                                    <div className="is-size-6">${toDollarsData(totalOverall)}</div>
-                                    <div className="is-size-7 has-text-grey">Total Sum</div>
+                                <td className="has-text-right has-text-weight-bold has-text-success">
+                                    <div className="is-size-6">${toDollarsData(totalCashIn)}</div>
+                                    <div className="is-size-7 has-text-grey">Cash Received</div>
                                 </td>
                                 <td colSpan={2}></td>
                             </tr>

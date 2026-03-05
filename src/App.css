@@ -130,6 +130,30 @@ body {
     border: none !important;
 }
 
+/* Responsive POS button heights */
+.pos-action-btn {
+    height: 160px;
+    /* compact on mobile */
+}
+
+@media screen and (min-width: 769px) {
+    .pos-action-btn {
+        height: 280px;
+        /* full size on tablet & desktop */
+    }
+}
+
+/* Top-level stats: 2 cols on mobile, 4 cols on tablet+ */
+.top-level-grid {
+    grid-template-columns: repeat(2, 1fr);
+}
+
+@media screen and (min-width: 769px) {
+    .top-level-grid {
+        grid-template-columns: repeat(4, 1fr);
+    }
+}
+
 /* --- POS Quick Item Buttons --- */
 .pos-item-btn {
     transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease !important;
@@ -335,6 +359,31 @@ body {
 .stat-card:hover {
     box-shadow: var(--bl-shadow-md) !important;
     transform: translateY(-2px);
+}
+
+/* --- Mobile Responsive Overrides --- */
+@media screen and (max-width: 768px) {
+
+    /* Hide redundant branded header — nav bar already shows the logo */
+    .app-header {
+        display: none;
+    }
+
+    /* Reduce container padding on small screens */
+    .container.px-4 {
+        padding-left: 0.75rem !important;
+        padding-right: 0.75rem !important;
+    }
+
+    /* Improve expense color contrast for WCAG AA on white background */
+    .has-text-warning {
+        color: #c05621 !important;
+    }
+
+    /* Tighten page headers on mobile */
+    .page-header .page-title {
+        font-size: 1.3rem;
+    }
 }
 
 /* --- Scrollbar Styling (Webkit) --- */

@@ -1,18 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import { collection, getDocs, addDoc, doc, deleteDoc } from 'firebase/firestore';
 import { db } from '../../firebase';
+import { useTenant } from '../../contexts/TenantContext';
 import { BuildingsBold, AddCircleBold, TrashBinMinimalisticBold } from 'solar-icon-set';
 
 export default function VendorManager() {
+    const { tenantId } = useTenant();
     const [vendors, setVendors] = useState([]);
     const [loading, setLoading] = useState(true);
     const [name, setName] = useState('');
     const [contact, setContact] = useState('');
 
     const fetchVendors = async () => {
+        if (!tenantId) return;
         setLoading(true);
         try {
-            const querySnapshot = await getDocs(collection(db, 'vendors'));
+            const querySnapshot = await getDocs(collection(db, 'tenants', tenantId, 'vendors'));
             const list = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
             setVendors(list.sort((a, b) => a.name.localeCompare(b.name)));
         } catch (error) {
@@ -23,12 +26,13 @@ export default function VendorManager() {
 
     useEffect(() => {
         fetchVendors();
-    }, []);
+    }, [tenantId]);
 
     const handleAdd = async (e) => {
         e.preventDefault();
+        if (!tenantId) return;
         try {
-            await addDoc(collection(db, 'vendors'), { name, contactInfo: contact });
+            await addDoc(collection(db, 'tenants', tenantId, 'vendors'), { name, contactInfo: contact });
             setName('');
             setContact('');
             fetchVendors();
@@ -39,7 +43,7 @@ export default function VendorManager() {
 
     const handleDelete = async (id) => {
         if (window.confirm("Delete vendor?")) {
-            await deleteDoc(doc(db, 'vendors', id));
+            await deleteDoc(doc(db, 'tenants', tenantId, 'vendors', id));
             fetchVendors();
         }
     };
@@ -72,7 +76,7 @@ export default function VendorManager() {
 
             {loading ? <p>Loading...</p> : (
                 <div className="table-container">
-                    <table className="table is-fullwidth is-hoverable is-striped">
+                    <table className="table is-fullwidth is-hoverable is-striped bl-table-responsive">
                         <thead>
                             <tr>
                                 <th>Vendor Name</th>
@@ -83,9 +87,9 @@ export default function VendorManager() {
                         <tbody>
                             {vendors.map(v => (
                                 <tr key={v.id}>
-                                    <td><strong>{v.name}</strong></td>
-                                    <td>{v.contactInfo}</td>
-                                    <td>
+                                    <td data-label="Vendor Name"><strong>{v.name}</strong></td>
+                                    <td data-label="Contact Details">{v.contactInfo}</td>
+                                    <td data-label="Actions">
                                         <button className="button is-danger is-small is-light" onClick={() => handleDelete(v.id)}>
                                             <span className="icon"><TrashBinMinimalisticBold size={14} /></span>
                                         </button>

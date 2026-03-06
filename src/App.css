@@ -12,7 +12,7 @@ body {
 
 /* --- Custom Color Overrides --- */
 :root {
-    --bl-primary: #00b894;
+    --bl-primary: var(--bl-primary-dynamic, #00b894);
     --bl-primary-dark: #00836b;
     --bl-danger: #e55353;
     --bl-info: #3273dc;
@@ -25,6 +25,17 @@ body {
     --bl-radius: 14px;
     --bl-radius-sm: 8px;
     --bl-transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+    --bl-glass: rgba(255, 255, 255, 0.75);
+    --bl-glass-border: rgba(255, 255, 255, 0.4);
+    --bl-grad-primary: linear-gradient(135deg, #00b894 0%, #00d1b2 100%);
+    --bl-grad-danger: linear-gradient(135deg, #e55353 0%, #fe4a49 100%);
+    --bl-grad-info: linear-gradient(135deg, #3273dc 0%, #0984e3 100%);
+    --bl-grad-warning: linear-gradient(135deg, #f0a500 0%, #ff7675 100%);
+    --bl-grad-purple: linear-gradient(135deg, #6c5ce7 0%, #a29bfe 100%);
+
+    /* Form Variable Defaults */
+    --bl-input-height: 50px;
+    --bl-input-font-size: 1.25rem;
 }
 
 /* --- App Shell --- */
@@ -35,7 +46,7 @@ body {
 
 /* --- App Header --- */
 .app-header {
-    background: linear-gradient(135deg, #00b894 0%, #00836b 100%);
+    background: var(--bl-header-dynamic, linear-gradient(135deg, #00b894 0%, #00836b 100%));
     padding: 18px 24px 14px;
     box-shadow: var(--bl-shadow-md);
     position: sticky;
@@ -90,6 +101,30 @@ body {
     border-radius: var(--bl-radius) !important;
     box-shadow: var(--bl-shadow-sm) !important;
     border: 1px solid rgba(0, 0, 0, 0.04);
+    background: var(--bl-white);
+    transition: var(--bl-transition);
+}
+
+.bl-card-premium {
+    background: var(--bl-white);
+    border: 1px solid var(--bl-glass-border);
+    box-shadow: var(--bl-shadow-md) !important;
+    overflow: hidden;
+    position: relative;
+    border-radius: 24px;
+}
+
+.bl-card-premium.bl-glass {
+    background: rgba(255, 255, 255, 0.7);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+}
+
+.bl-glass {
+    background: var(--bl-glass) !important;
+    backdrop-filter: blur(12px) !important;
+    -webkit-backdrop-filter: blur(12px) !important;
+    border: 1px solid var(--bl-glass-border) !important;
 }
 
 /* --- Buttons --- */
@@ -130,10 +165,46 @@ body {
     border: none !important;
 }
 
-/* Responsive POS button heights */
 .pos-action-btn {
-    height: 160px;
-    /* compact on mobile */
+    height: 100px;
+}
+
+@media screen and (max-width: 768px) {
+
+    /* Reduced font size for form elements on mobile */
+    :root {
+        --bl-input-height: 40px;
+        --bl-input-font-size: 0.95rem;
+    }
+
+    .input,
+    .select select,
+    .textarea,
+    .label {
+        font-size: var(--bl-input-font-size) !important;
+    }
+
+    .label.is-large {
+        font-size: 1rem !important;
+        margin-bottom: 0.25rem !important;
+    }
+
+    .input.is-large,
+    .select.is-large select {
+        height: var(--bl-input-height) !important;
+    }
+
+    .pos-action-btn .title {
+        font-size: 1.1rem !important;
+    }
+
+    .pos-action-btn .subtitle {
+        font-size: 0.7rem !important;
+    }
+
+    .pos-action-btn>span {
+        font-size: 2rem !important;
+    }
 }
 
 @media screen and (min-width: 769px) {
@@ -234,6 +305,13 @@ body {
     border-bottom: 2px solid #e8ecf0;
 }
 
+@media screen and (max-width: 768px) {
+    .page-header {
+        margin-bottom: 1rem;
+        padding-bottom: 0.75rem;
+    }
+}
+
 .page-header .page-title {
     font-size: 1.75rem;
     font-weight: 800;
@@ -243,9 +321,18 @@ body {
 }
 
 .page-header .page-subtitle {
-    font-size: 0.9rem;
+    font-size: 0.85rem;
     color: #718096;
     margin: 0;
+    opacity: 0.8;
+}
+
+.bl-text-gradient {
+    background: var(--bl-grad-primary);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    display: inline-block;
 }
 
 /* --- Cart badge --- */
@@ -315,13 +402,38 @@ body {
     margin-bottom: 0.5rem;
 }
 
-/* --- Tabs (Admin Dashboard) --- */
-.tabs.is-boxed li.is-active a {
-    background: #f0fdf9;
-    border-color: var(--bl-primary) !important;
-    border-bottom-color: transparent !important;
+/* --- Tabs as Pills (Mobile-First) --- */
+.tabs.is-pills ul {
+    border-bottom: none;
+    gap: 8px;
+    padding: 4px;
+    background: #edf2f7;
+    border-radius: 50px;
+    display: inline-flex;
+}
+
+.tabs.is-pills li a {
+    border: none !important;
+    border-radius: 50px !important;
+    padding: 0.5rem 1.25rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #718096;
+    transition: var(--bl-transition);
+}
+
+.tabs.is-pills li.is-active a {
+    background: var(--bl-white) !important;
     color: var(--bl-primary) !important;
-    font-weight: 700;
+    box-shadow: var(--bl-shadow-sm) !important;
+}
+
+@media screen and (max-width: 768px) {
+    .tabs.is-pills {
+        margin: 0 -1rem 1.5rem -1rem;
+        padding: 0 1rem;
+        overflow-x: auto;
+    }
 }
 
 /* --- Responsive / Mobile helpers --- */
@@ -346,6 +458,116 @@ body {
 
 .table tbody tr {
     transition: background 0.1s ease;
+}
+
+/* --- Responsive Table-to-Cards Pattern --- */
+@media screen and (max-width: 768px) {
+
+    .bl-table-responsive,
+    .bl-table-responsive thead,
+    .bl-table-responsive tbody,
+    .bl-table-responsive th,
+    .bl-table-responsive td,
+    .bl-table-responsive tr {
+        display: block;
+    }
+
+    /* Hide table headers */
+    .bl-table-responsive thead tr {
+        position: absolute;
+        top: -9999px;
+        left: -9999px;
+    }
+
+    .bl-table-responsive tr {
+        border: 1px solid #e1e8ed;
+        margin-bottom: 1.5rem;
+        background: white;
+        border-radius: var(--bl-radius-sm);
+        padding: 0;
+        box-shadow: var(--bl-shadow-md);
+        overflow: hidden;
+    }
+
+    .bl-table-responsive td {
+        border: none;
+        border-bottom: 1px solid #f0f3f5;
+        position: relative;
+        padding-left: 120px !important;
+        text-align: left !important;
+        min-height: 44px;
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+    }
+
+    .bl-table-responsive td:last-child {
+        border-bottom: 0;
+    }
+
+    .bl-table-responsive td:before {
+        position: absolute;
+        top: 0;
+        left: 0;
+        bottom: 0;
+        width: 110px;
+        padding-left: 12px;
+        display: flex;
+        align-items: center;
+        white-space: nowrap;
+        text-align: left;
+        font-weight: 700;
+        content: attr(data-label);
+        font-size: 0.7rem;
+        color: #718096;
+        text-transform: uppercase;
+        background: rgba(0, 0, 0, 0.02);
+        border-right: 1px solid #f0f3f5;
+    }
+
+    /* Action buttons in mobile cards */
+    .bl-table-responsive td .buttons {
+        justify-content: flex-end;
+    }
+
+    /* Full-width buttons in level headers on mobile */
+    .level {
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .level-left,
+    .level-right {
+        margin-bottom: 0.75rem;
+    }
+
+    .level-right .button {
+        width: 100%;
+    }
+}
+
+/* --- Horizontal Scrolling Tabs for Mobile --- */
+@media screen and (max-width: 768px) {
+    .tabs ul {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        padding-bottom: 0px;
+    }
+
+    .tabs ul::-webkit-scrollbar {
+        display: none;
+    }
+
+    .tabs {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+    }
+
+    .tabs li {
+        flex-shrink: 0;
+    }
 }
 
 /* --- Dashboard stats cards --- */
@@ -383,7 +605,86 @@ body {
     /* Tighten page headers on mobile */
     .page-header .page-title {
         font-size: 1.3rem;
+        display: flex;
+        align-items: center;
     }
+
+    .page-header .icon {
+        display: flex;
+        align-items: center;
+    }
+}
+
+/* Dashboard Stat Cards Layout */
+.top-level-stat-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    padding: 4px;
+    justify-content: center;
+    /* Centered by default */
+}
+
+.top-level-stat-container .bl-card-premium {
+    flex: 1 1 calc(50% - 12px);
+    /* 2 per row on mobile */
+    min-width: 140px;
+}
+
+@media screen and (min-width: 1024px) {
+    .top-level-stat-container .bl-card-premium {
+        flex: 0 1 200px;
+        /* Fixed size on desktop */
+    }
+}
+
+/* User email row in mobile menu */
+@media screen and (max-width: 1023px) {
+    .navbar-menu.is-active {
+        display: block !important;
+        position: absolute;
+        width: 100%;
+        left: 0;
+        background: white;
+        box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+        z-index: 100;
+    }
+
+    .navbar-end .navbar-item {
+        border-top: 1px solid #edf2f7;
+        margin-top: 5px;
+        padding-top: 1rem;
+    }
+
+    .navbar-end .is-flex-direction-column {
+        align-items: flex-start;
+    }
+
+    .navbar-end .is-size-7 {
+        margin-bottom: 0.75rem;
+    }
+}
+
+
+/* Premium Labels with Icons */
+.bl-label-icon {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--bl-text-main);
+    font-weight: 700;
+    margin-bottom: 0.75rem !important;
+}
+
+.bl-label-icon .icon {
+    color: var(--bl-primary);
+}
+
+/* Form Sections */
+.bl-form-section {
+    padding: 1.5rem;
+    border-top: 1px solid #edf2f7;
+    margin-top: 1.5rem;
 }
 
 /* --- Scrollbar Styling (Webkit) --- */
@@ -402,4 +703,41 @@ body {
 
 ::-webkit-scrollbar-thumb:hover {
     background: #a0aec0;
+}
+
+/* ============================================================
+   Print Styles (Thermal Receipt)
+   ============================================================ */
+@media print {
+
+    /* Hide everything by default */
+    body * {
+        visibility: hidden;
+    }
+
+    /* Reveal only the receipt print area */
+    .receipt-print-area,
+    .receipt-print-area * {
+        visibility: visible;
+    }
+
+    .receipt-print-area {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+        margin: 0;
+        padding: 0;
+    }
+
+    /* Hide elements marked as hidden in print */
+    .is-hidden-print {
+        display: none !important;
+    }
+
+    /* Remove background colors and shadows */
+    .modal-card {
+        box-shadow: none !important;
+        border: none !important;
+    }
 }

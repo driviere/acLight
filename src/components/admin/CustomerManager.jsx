@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { collection, getDocs, addDoc, doc, deleteDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../../firebase';
+import { useTenant } from '../../contexts/TenantContext';
 import { UsersGroupTwoRoundedBold, AddCircleBold, TrashBinMinimalisticBold, PenNewSquareBold, CheckSquareBold, CloseSquareBold } from 'solar-icon-set';
 
 export default function CustomerManager() {
+    const { tenantId } = useTenant();
     const [customers, setCustomers] = useState([]);
     const [loading, setLoading] = useState(true);
     const [name, setName] = useState('');
@@ -18,9 +20,10 @@ export default function CustomerManager() {
     const [saving, setSaving] = useState(false);
 
     const fetchCustomers = async () => {
+        if (!tenantId) return;
         setLoading(true);
         try {
-            const querySnapshot = await getDocs(collection(db, 'customers'));
+            const querySnapshot = await getDocs(collection(db, 'tenants', tenantId, 'customers'));
             const list = querySnapshot.docs.map(d => ({ id: d.id, ...d.data() }));
             setCustomers(list.sort((a, b) => a.name.localeCompare(b.name)));
         } catch (error) {
@@ -29,12 +32,13 @@ export default function CustomerManager() {
         setLoading(false);
     };
 
-    useEffect(() => { fetchCustomers(); }, []);
+    useEffect(() => { fetchCustomers(); }, [tenantId]);
 
     const handleAdd = async (e) => {
         e.preventDefault();
+        if (!tenantId) return;
         try {
-            await addDoc(collection(db, 'customers'), { name, phone, email });
+            await addDoc(collection(db, 'tenants', tenantId, 'customers'), { name, phone, email });
             setName(''); setPhone(''); setEmail('');
             fetchCustomers();
         } catch (error) { console.error(error); }
@@ -42,7 +46,7 @@ export default function CustomerManager() {
 
     const handleDelete = async (id) => {
         if (window.confirm("Delete this customer? Their existing invoices will remain.")) {
-            await deleteDoc(doc(db, 'customers', id));
+            await deleteDoc(doc(db, 'tenants', tenantId, 'customers', id));
             fetchCustomers();
         }
     };
@@ -57,10 +61,10 @@ export default function CustomerManager() {
     const cancelEdit = () => setEditingId(null);
 
     const handleSave = async (id) => {
-        if (!editName.trim()) return;
+        if (!editName.trim() || !tenantId) return;
         setSaving(true);
         try {
-            await updateDoc(doc(db, 'customers', id), {
+            await updateDoc(doc(db, 'tenants', tenantId, 'customers', id), {
                 name: editName.trim(),
                 phone: editPhone.trim(),
                 email: editEmail.trim(),
@@ -105,7 +109,7 @@ export default function CustomerManager() {
             {/* ── Table ── */}
             {loading ? <p>Loading...</p> : (
                 <div className="table-container">
-                    <table className="table is-fullwidth is-hoverable">
+                    <table className="table is-fullwidth is-hoverable bl-table-responsive">
                         <thead>
                             <tr>
                                 <th>Name</th>
@@ -167,10 +171,10 @@ export default function CustomerManager() {
                                 ) : (
                                     // ── Read Row ──
                                     <tr key={c.id}>
-                                        <td className="is-vcentered"><strong>{c.name}</strong></td>
-                                        <td className="is-vcentered">{c.phone || <span className="has-text-grey-light">—</span>}</td>
-                                        <td className="is-vcentered">{c.email || <span className="has-text-grey-light">—</span>}</td>
-                                        <td className="is-vcentered">
+                                        <td data-label="Name" className="is-vcentered"><strong>{c.name}</strong></td>
+                                        <td data-label="Phone" className="is-vcentered">{c.phone || <span className="has-text-grey-light">—</span>}</td>
+                                        <td data-label="Email" className="is-vcentered">{c.email || <span className="has-text-grey-light">—</span>}</td>
+                                        <td data-label="Actions" className="is-vcentered">
                                             <div className="buttons are-small">
                                                 <button
                                                     className="button is-info is-light"

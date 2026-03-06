@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
-import { HomeBold, SettingsBold, DatabaseBold, BillBold, TrashBinMinimalisticBold, LogoutBold, BookmarkBold } from 'solar-icon-set';
+import { TenantProvider, useTenant } from './contexts/TenantContext';
+import { HomeBold, SettingsBold, DatabaseBold, BillBold, TrashBinMinimalisticBold, LogoutBold, BookmarkBold, ShieldCheckBold } from 'solar-icon-set';
 import Login from './components/auth/Login';
 import PrivateRoute from './components/auth/PrivateRoute';
 import AdminDashboard from './components/admin/AdminDashboard';
@@ -12,6 +13,7 @@ import WasteTracker from './components/modules/WasteTracker';
 import TopLevelBar from './components/modules/TopLevelBar';
 import POSDashboard from './components/pos/POSDashboard';
 import TransactionLedger from './components/modules/TransactionLedger';
+import SuperAdminDashboard from './components/admin/SuperAdminDashboard';
 import './App.css';
 
 // ── Reusable Page Header ──────────────────────────────────────
@@ -50,8 +52,9 @@ export function useToast() {
 }
 
 // ── Burger Navigation ─────────────────────────────────────────
-const Navigation = () => {
-  const { currentUser, isAdmin, logout } = useAuth();
+export const Navigation = () => {
+  const { currentUser, isAdmin, isSuperAdmin, logout } = useAuth();
+  const { tenantData } = useTenant();
   const location = useLocation();
   const [isOpen, setIsOpen] = useState(false);
 
@@ -71,17 +74,16 @@ const Navigation = () => {
   );
 
   return (
-    <nav className="navbar bl-navbar mb-4" role="navigation" aria-label="main navigation">
+    <nav className="navbar bl-navbar mb-4 bl-glass" role="navigation" aria-label="main navigation" style={{
+      position: 'sticky', top: 0, zIndex: 50
+    }}>
       <div className="navbar-brand">
-        <span className="navbar-item" style={{ fontWeight: 800, fontSize: '1.1rem', color: '#00b894' }}>
-          🥖 Bakery Ledger
-        </span>
         <button
           className={`navbar-burger ${isOpen ? 'is-active' : ''}`}
           aria-label="menu"
           aria-expanded={isOpen}
           onClick={() => setIsOpen(o => !o)}
-          style={{ background: 'none', border: 'none', cursor: 'pointer' }}
+          style={{ background: 'none', border: 'none', cursor: 'pointer', marginLeft: 0 }}
         >
           <span aria-hidden="true"></span>
           <span aria-hidden="true"></span>
@@ -91,29 +93,47 @@ const Navigation = () => {
 
       <div className={`navbar-menu ${isOpen ? 'is-active' : ''}`}>
         <div className="navbar-start">
-          {navLink('/', 'Register (POS)', <HomeBold size={16} />)}
-          {navLink('/outstanding', 'AR / AP', <DatabaseBold size={16} />)}
-          {navLink('/ledger', 'Ledger', <BookmarkBold size={16} />)}
-          {navLink('/expenses', 'Expenses', <BillBold size={16} />)}
-          {navLink('/spoilage', 'Spoilage', <TrashBinMinimalisticBold size={16} />)}
-          {isAdmin && navLink('/admin', 'Admin', <SettingsBold size={16} />)}
+          {!isSuperAdmin && navLink('/', 'Register (POS)', <HomeBold size={16} />)}
+          {!isSuperAdmin && navLink('/outstanding', 'AR / AP', <DatabaseBold size={16} />)}
+          {!isSuperAdmin && navLink('/ledger', 'Ledger', <BookmarkBold size={16} />)}
+          {!isSuperAdmin && navLink('/expenses', 'Expenses', <BillBold size={16} />)}
+          {!isSuperAdmin && navLink('/spoilage', 'Spoilage', <TrashBinMinimalisticBold size={16} />)}
+          {isAdmin && !isSuperAdmin && navLink('/admin', 'Admin', <SettingsBold size={16} />)}
+          {isSuperAdmin && navLink('/super-admin', 'Super Admin', <ShieldCheckBold size={16} />)}
         </div>
         <div className="navbar-end">
           <div className="navbar-item">
-            <button className="button is-light is-small" onClick={logout}>
-              <span className="icon"><LogoutBold size={14} /></span>
-              <span>Log Out</span>
-            </button>
+            <div className="is-flex is-flex-direction-column">
+              <span className="has-text-grey is-size-7 mb-1 is-hidden-touch">
+                <span className="icon mr-1"><ShieldCheckBold size={14} /></span>
+                Logged in as: <strong>{currentUser.email}</strong>
+              </span>
+              <button className="button is-light is-small" onClick={logout}>
+                <span className="icon"><LogoutBold size={14} /></span>
+                <span>Log Out</span>
+              </button>
+            </div>
           </div>
         </div>
       </div>
-    </nav>
+    </nav >
   );
 };
 
 // ── Main Dashboard ────────────────────────────────────────────
 const MainDashboard = () => {
-  const { isAdmin } = useAuth();
+  const { isAdmin, isSuperAdmin } = useAuth();
+
+  if (isSuperAdmin) {
+    return (
+      <div className="has-text-centered py-6">
+        <ShieldCheckBold size={64} style={{ opacity: 0.2 }} />
+        <h2 className="title is-4 mt-4">Platform Administration</h2>
+        <p className="subtitle is-6">Please use the Super Admin menu to manage tenants.</p>
+        <Link to="/super-admin" className="button is-primary mt-4">Go to Portal</Link>
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -130,7 +150,8 @@ const MainDashboard = () => {
 
 // ── App Wrapper ───────────────────────────────────────────────
 function AppContent() {
-  const { currentUser } = useAuth();
+  const { currentUser, isSuperAdmin } = useAuth();
+  const { tenantData } = useTenant();
   const location = useLocation();
   const isLogin = location.pathname === '/login';
 
@@ -138,7 +159,11 @@ function AppContent() {
     <div className="app-shell">
       {!isLogin && currentUser && (
         <div className="app-header">
-          <p className="app-logo">🥖 Bakery Ledger</p>
+          <p className="app-logo">
+            {tenantData?.branding?.logo_url ? (
+              <img src={tenantData.branding.logo_url} alt="Logo" className="mr-2" style={{ maxHeight: '1.8rem', verticalAlign: 'middle' }} />
+            ) : '🥖'} {tenantData?.name || 'Bakery Ledger'}
+          </p>
           <p className="app-tagline">Accounting rigorous, user simple.</p>
         </div>
       )}
@@ -152,18 +177,21 @@ function AppContent() {
           <Route path="/outstanding" element={<PrivateRoute><OutstandingList /></PrivateRoute>} />
           <Route path="/expenses" element={
             <PrivateRoute requireAdmin={true}>
-              <PageHeader title="Expenses" subtitle="Record incoming vendor bills and receipts." icon={<BillBold />} />
               <ExpenseLogger />
             </PrivateRoute>
           } />
           <Route path="/spoilage" element={
             <PrivateRoute>
-              <PageHeader title="Spoilage & Waste" subtitle="Log burned or unsold daily products." icon={<TrashBinMinimalisticBold />} />
               <WasteTracker />
             </PrivateRoute>
           } />
           <Route path="/admin" element={<PrivateRoute requireAdmin={true}><AdminDashboard /></PrivateRoute>} />
           <Route path="/ledger" element={<PrivateRoute><TransactionLedger /></PrivateRoute>} />
+          <Route path="/super-admin" element={
+            <PrivateRoute requireSuperAdmin={true}>
+              <SuperAdminDashboard />
+            </PrivateRoute>
+          } />
         </Routes>
       </div>
     </div>
@@ -173,9 +201,11 @@ function AppContent() {
 function App() {
   return (
     <AuthProvider>
-      <Router>
-        <AppContent />
-      </Router>
+      <TenantProvider>
+        <Router>
+          <AppContent />
+        </Router>
+      </TenantProvider>
     </AuthProvider>
   );
 }

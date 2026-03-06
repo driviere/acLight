@@ -4,7 +4,8 @@ import { db } from '../../firebase';
 import { toDollarsData } from '../../utils/moneyUtils';
 import { voidJournalEntry } from '../../services/journalService';
 import { useAuth } from '../../contexts/AuthContext';
-import { PageHeader } from '../../App';
+import { useTenant } from '../../contexts/TenantContext';
+import PageLayout from '../layout/PageLayout';
 import { BookmarkBold, DocumentTextBold, NotesBold, CheckSquareBold, CloseSquareBold, TrashBinTrashBold } from 'solar-icon-set';
 
 const TYPE_LABELS = {
@@ -41,10 +42,11 @@ function ReferenceEditor({ entry, onSaved }) {
     const [notes, setNotes] = useState(entry.metadata?.notes || '');
     const [saving, setSaving] = useState(false);
 
+    const { tenantId } = useTenant();
     const handleSave = async () => {
         setSaving(true);
         try {
-            await updateDoc(doc(db, 'journal_entries', entry.id), {
+            await updateDoc(doc(db, 'tenants', tenantId, 'journal_entries', entry.id), {
                 'metadata.refNo': ref.trim(),
                 'metadata.notes': notes.trim(),
             });
@@ -92,6 +94,7 @@ function ReferenceEditor({ entry, onSaved }) {
 
 export default function TransactionLedger() {
     const { currentUser } = useAuth();
+    const { tenantId } = useTenant();
     const [entries, setEntries] = useState([]);
     const [loading, setLoading] = useState(true);
     const [expandedId, setExpandedId] = useState(null);
@@ -105,9 +108,10 @@ export default function TransactionLedger() {
     const [search, setSearch] = useState('');
 
     const fetchEntries = async () => {
+        if (!tenantId) return;
         setLoading(true);
         try {
-            const q = query(collection(db, 'journal_entries'), orderBy('date', 'desc'));
+            const q = query(collection(db, 'tenants', tenantId, 'journal_entries'), orderBy('date', 'desc'));
             const snap = await getDocs(q);
             setEntries(snap.docs.map(d => ({ id: d.id, ...d.data() })));
         } catch (err) {
@@ -116,7 +120,7 @@ export default function TransactionLedger() {
         setLoading(false);
     };
 
-    useEffect(() => { fetchEntries(); }, []);
+    useEffect(() => { fetchEntries(); }, [tenantId]);
 
     const filtered = entries.filter(e => {
         if (filterType !== 'all' && e.type !== filterType) return false;
@@ -158,12 +162,11 @@ export default function TransactionLedger() {
     );
 
     return (
-        <div>
-            <PageHeader
-                title="Transaction Ledger"
-                subtitle="Full history of all sales, purchases, expenses, and payments."
-                icon={<BookmarkBold size={24} />}
-            />
+        <PageLayout
+            title="Transaction Ledger"
+            subtitle="Full history of all sales, purchases, expenses, and payments."
+            icon={<BookmarkBold size={24} />}
+        >
 
             {/* ── Filters ── */}
             <div className="box mb-4" style={{ padding: '1rem' }}>
@@ -214,7 +217,7 @@ export default function TransactionLedger() {
                 </div>
             ) : (
                 <div className="table-container">
-                    <table className="table is-fullwidth is-hoverable">
+                    <table className="table is-fullwidth is-hoverable bl-table-responsive">
                         <thead>
                             <tr>
                                 <th>Date</th>
@@ -248,29 +251,29 @@ export default function TransactionLedger() {
                                             onClick={() => toggleExpand(entry.id)}
                                             className={isExpanded ? 'has-background-light' : ''}
                                         >
-                                            <td className="is-vcentered" style={{ whiteSpace: 'nowrap' }}>{dateStr}</td>
-                                            <td className="is-vcentered">
+                                            <td data-label="Date" className="is-vcentered" style={{ whiteSpace: 'nowrap' }}>{dateStr}</td>
+                                            <td data-label="Type" className="is-vcentered">
                                                 <span className={`tag ${typeBadge}`}>
                                                     {TYPE_LABELS[entry.type] || entry.type}
                                                 </span>
                                             </td>
-                                            <td className="is-vcentered">
+                                            <td data-label="Party" className="is-vcentered">
                                                 <strong>{party}</strong>
                                                 {meta.items_summary && <><br /><span className="has-text-grey is-size-7">{meta.items_summary}</span></>}
                                                 {hasRef && <><br /><span className="has-text-info is-size-7">📎 {meta.refNo}{meta.notes ? ` — ${meta.notes}` : ''}</span></>}
                                             </td>
-                                            <td className="is-vcentered">
+                                            <td data-label="Status" className="is-vcentered">
                                                 <span className={`tag ${statusBadge.cls}`}>{statusBadge.label}</span>
                                             </td>
-                                            <td className="has-text-right is-vcentered has-text-weight-bold">
+                                            <td data-label="Amount" className="has-text-right is-vcentered has-text-weight-bold">
                                                 ${toDollarsData(entry.total_cents || 0)}
                                             </td>
-                                            <td className="has-text-right is-vcentered">
+                                            <td data-label="Balance" className="has-text-right is-vcentered">
                                                 {entry.outstanding_cents > 0
                                                     ? <span className="has-text-danger has-text-weight-bold">${toDollarsData(entry.outstanding_cents)}</span>
                                                     : <span className="has-text-success">✓</span>}
                                             </td>
-                                            <td className="has-text-centered is-vcentered">
+                                            <td data-label="Details" className="has-text-centered is-vcentered">
                                                 <span className="has-text-grey is-size-7">{isExpanded ? '▲' : '▼'}</span>
                                             </td>
                                         </tr>
@@ -388,7 +391,7 @@ export default function TransactionLedger() {
                                 onClick={async () => {
                                     setVoiding(true);
                                     try {
-                                        await voidJournalEntry(voidTarget.id, currentUser.uid);
+                                        await voidJournalEntry(tenantId, voidTarget.id, currentUser.uid);
                                         setVoidTarget(null);
                                         fetchEntries();
                                     } catch (err) {
@@ -405,6 +408,6 @@ export default function TransactionLedger() {
                     </div>
                 </div>
             )}
-        </div>
+        </PageLayout>
     );
 }

@@ -5,7 +5,7 @@ import {
     signOut,
     onAuthStateChanged
 } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, collection, query, where, getDocs, setDoc, limit } from 'firebase/firestore';
 
 const AuthContext = createContext();
 
@@ -15,7 +15,8 @@ export const useAuth = () => {
 
 export const AuthProvider = ({ children }) => {
     const [currentUser, setCurrentUser] = useState(null);
-    const [userRole, setUserRole] = useState(null); // 'admin' or 'staff'
+    const [userRole, setUserRole] = useState(null); // 'admin', 'staff', or 'super_admin'
+    const [tenantId, setTenantId] = useState(null);
     const [loading, setLoading] = useState(true);
 
     // Login function
@@ -32,22 +33,50 @@ export const AuthProvider = ({ children }) => {
         const unsubscribe = onAuthStateChanged(auth, async (user) => {
             setCurrentUser(user);
             if (user) {
-                // Fetch user role from Firestore document
                 try {
                     const userDocRef = doc(db, 'users', user.uid);
                     const userDoc = await getDoc(userDocRef);
+
                     if (userDoc.exists()) {
-                        setUserRole(userDoc.data().role);
+                        const data = userDoc.data();
+                        setUserRole(data.role || 'staff');
+                        setTenantId(data.tenant_id || null);
                     } else {
-                        // Default to staff if no document exists (or handle appropriately)
-                        setUserRole('staff');
+                        // User document doesn't exist -> Check if they were invited as an owner
+                        const inviteQuery = query(
+                            collection(db, 'tenants'),
+                            where('owner_email', '==', user.email.toLowerCase()),
+                            limit(1)
+                        );
+                        const inviteSnap = await getDocs(inviteQuery);
+
+                        if (!inviteSnap.empty) {
+                            const invitedTenant = inviteSnap.docs[0];
+                            const invitedTenantId = invitedTenant.id;
+
+                            // Provision user document automatically
+                            await setDoc(doc(db, 'users', user.uid), {
+                                email: user.email,
+                                role: 'admin',
+                                tenant_id: invitedTenantId,
+                                createdAt: new Date()
+                            });
+
+                            setUserRole('admin');
+                            setTenantId(invitedTenantId);
+                        } else {
+                            setUserRole('staff');
+                            setTenantId(null);
+                        }
                     }
                 } catch (error) {
-                    console.error("Error fetching user role:", error);
+                    console.error("Error fetching user data:", error);
                     setUserRole('staff');
+                    setTenantId(null);
                 }
             } else {
                 setUserRole(null);
+                setTenantId(null);
             }
             setLoading(false);
         });
@@ -58,10 +87,12 @@ export const AuthProvider = ({ children }) => {
     const value = {
         currentUser,
         userRole,
+        tenantId,
         login,
         logout,
         isAdmin: userRole === 'admin',
-        isStaff: userRole === 'staff'
+        isStaff: userRole === 'staff',
+        isSuperAdmin: userRole === 'super_admin'
     };
 
     return (

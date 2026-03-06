@@ -41,12 +41,15 @@ export const INITIAL_CHART_OF_ACCOUNTS = [
 /**
  * Seeds the initial chart of accounts into Firestore if the collection is empty.
  * This utilizes a batch write to ensure all base accounts are created atomically.
+ * @param {string} tenantId - The ID of the tenant
  * @returns {Promise<boolean>} True if seeded, False if already exists.
  */
-export const seedChartOfAccounts = async () => {
+export const seedChartOfAccounts = async (tenantId) => {
+    if (!tenantId) throw new Error("tenantId is required");
     try {
         // First check if accounts already exist so we don't overwrite user data
-        const querySnapshot = await getDocs(collection(db, ACCOUNTS_COLLECTION));
+        const accountsColl = collection(db, 'tenants', tenantId, ACCOUNTS_COLLECTION);
+        const querySnapshot = await getDocs(accountsColl);
 
         if (!querySnapshot.empty) {
             console.log("Chart of Accounts already exists. Skipping seed.");
@@ -58,7 +61,7 @@ export const seedChartOfAccounts = async () => {
 
         const now = Timestamp.now();
         INITIAL_CHART_OF_ACCOUNTS.forEach((account) => {
-            const docRef = doc(db, ACCOUNTS_COLLECTION, account.id);
+            const docRef = doc(db, 'tenants', tenantId, ACCOUNTS_COLLECTION, account.id);
             batch.set(docRef, { ...account, created_at: now, updated_at: now });
         });
 
@@ -74,9 +77,11 @@ export const seedChartOfAccounts = async () => {
 
 /**
  * Fetches all accounts from Firestore, sorted by ID.
+ * @param {string} tenantId 
  */
-export const getAllAccounts = async () => {
-    const querySnapshot = await getDocs(collection(db, ACCOUNTS_COLLECTION));
+export const getAllAccounts = async (tenantId) => {
+    if (!tenantId) throw new Error("tenantId is required");
+    const querySnapshot = await getDocs(collection(db, 'tenants', tenantId, ACCOUNTS_COLLECTION));
     return querySnapshot.docs
         .map(doc => ({ id: doc.id, ...doc.data() }))
         .sort((a, b) => a.id.localeCompare(b.id));
@@ -84,11 +89,13 @@ export const getAllAccounts = async () => {
 
 /**
  * Adds a new account to the Chart of Accounts.
+ * @param {string} tenantId 
  */
-export const addAccount = async (id, name, type) => {
+export const addAccount = async (tenantId, id, name, type) => {
+    if (!tenantId) throw new Error("tenantId is required");
     const trimmedId = id.trim().toLowerCase().replace(/\s+/g, '_');
     if (!trimmedId || !name || !type) throw new Error('ID, name, and type are required.');
-    const docRef = doc(db, ACCOUNTS_COLLECTION, trimmedId);
+    const docRef = doc(db, 'tenants', tenantId, ACCOUNTS_COLLECTION, trimmedId);
     const existing = await getDoc(docRef);
     if (existing.exists()) throw new Error(`Account ID "${trimmedId}" already exists.`);
     const now = Timestamp.now();
@@ -97,8 +104,10 @@ export const addAccount = async (id, name, type) => {
 
 /**
  * Updates an account's editable fields (name, active status).
+ * @param {string} tenantId 
  */
-export const updateAccount = async (id, updates) => {
-    const docRef = doc(db, ACCOUNTS_COLLECTION, id);
+export const updateAccount = async (tenantId, id, updates) => {
+    if (!tenantId) throw new Error("tenantId is required");
+    const docRef = doc(db, 'tenants', tenantId, ACCOUNTS_COLLECTION, id);
     await updateDoc(docRef, { ...updates, updated_at: Timestamp.now() });
 };

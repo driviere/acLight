@@ -2,11 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { toDollarsData, toCents } from '../../utils/moneyUtils';
+import { useTenant } from '../../contexts/TenantContext';
 import { getAllAccounts } from '../../services/accountService';
 import { LayersBold, AddCircleBold, TrashBinMinimalisticBold, PenBold } from 'solar-icon-set';
 import Select from 'react-select';
 
 export default function BundleManager() {
+    const { tenantId } = useTenant();
     const [bundles, setBundles] = useState([]);
     const [allItems, setAllItems] = useState([]);
     const [revenueAccounts, setRevenueAccounts] = useState([]);
@@ -25,9 +27,10 @@ export default function BundleManager() {
     const [savingId, setSavingId] = useState(null);
 
     const fetchData = async () => {
+        if (!tenantId) return;
         setLoading(true);
         try {
-            const querySnapshot = await getDocs(collection(db, 'items'));
+            const querySnapshot = await getDocs(collection(db, 'tenants', tenantId, 'items'));
             const data = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
             const itemsList = data.filter(item => item.type !== 'bundle');
@@ -36,7 +39,7 @@ export default function BundleManager() {
             const bundleList = data.filter(item => item.type === 'bundle');
             setBundles(bundleList.sort((a, b) => a.name.localeCompare(b.name)));
 
-            const accounts = await getAllAccounts();
+            const accounts = await getAllAccounts(tenantId);
             setRevenueAccounts(accounts.filter(a => a.type === 'revenue' && a.active !== false));
         } catch (error) {
             console.error(error);
@@ -46,17 +49,17 @@ export default function BundleManager() {
 
     useEffect(() => {
         fetchData();
-    }, []);
+    }, [tenantId]);
 
     const handleAdd = async (e) => {
         e.preventDefault();
-        if (selectedItems.length === 0) {
+        if (selectedItems.length === 0 || !tenantId) {
             alert("A bundle must contain at least one item.");
             return;
         }
 
         try {
-            await addDoc(collection(db, 'items'), {
+            await addDoc(collection(db, 'tenants', tenantId, 'items'), {
                 type: 'bundle',
                 name,
                 price_cents: toCents(price),
@@ -80,7 +83,7 @@ export default function BundleManager() {
 
     const handleDelete = async (id) => {
         if (window.confirm("Are you sure you want to delete this bundle?")) {
-            await deleteDoc(doc(db, 'items', id));
+            await deleteDoc(doc(db, 'tenants', tenantId, 'items', id));
             fetchData();
         }
     };
@@ -98,10 +101,10 @@ export default function BundleManager() {
     };
 
     const handleSaveEdit = async () => {
-        if (!editForm.name || !editForm.price || editForm.bundle_items.length === 0) return;
+        if (!editForm.name || !editForm.price || editForm.bundle_items.length === 0 || !tenantId) return;
         setSavingId(editingId);
         try {
-            await updateDoc(doc(db, 'items', editingId), {
+            await updateDoc(doc(db, 'tenants', tenantId, 'items', editingId), {
                 name: editForm.name,
                 sku: editForm.sku,
                 price_cents: toCents(editForm.price),
@@ -189,6 +192,24 @@ export default function BundleManager() {
                             value={selectedItems.map(si => ({ value: si.item_id, label: si.item_name }))}
                             onChange={handleMultiSelectChange}
                             placeholder="Select items to include in this bundle..."
+                            styles={{
+                                control: (base) => ({
+                                    ...base,
+                                    fontSize: 'var(--bl-input-font-size, 1rem)'
+                                }),
+                                placeholder: (base) => ({
+                                    ...base,
+                                    fontSize: 'var(--bl-input-font-size, 1rem)'
+                                }),
+                                singleValue: (base) => ({
+                                    ...base,
+                                    fontSize: 'var(--bl-input-font-size, 1rem)'
+                                }),
+                                multiValue: (base) => ({
+                                    ...base,
+                                    fontSize: '0.85rem'
+                                })
+                            }}
                         />
                         {selectedItems.length > 0 && (
                             <div className="tags mt-2">
@@ -218,7 +239,7 @@ export default function BundleManager() {
 
             {loading ? <p>Loading bundles...</p> : (
                 <div className="table-container">
-                    <table className="table is-fullwidth is-hoverable is-striped">
+                    <table className="table is-fullwidth is-hoverable is-striped bl-table-responsive">
                         <thead>
                             <tr>
                                 <th>Bundle Name</th>
@@ -240,7 +261,16 @@ export default function BundleManager() {
                                             <td>
                                                 <Select
                                                     isMulti
-                                                    styles={{ control: base => ({ ...base, minHeight: '30px' }), valueContainer: base => ({ ...base, padding: '0 8px' }) }}
+                                                    styles={{
+                                                        control: base => ({
+                                                            ...base,
+                                                            minHeight: '30px',
+                                                            fontSize: 'var(--bl-input-font-size, 0.85rem)'
+                                                        }),
+                                                        valueContainer: base => ({ ...base, padding: '0 8px' }),
+                                                        placeholder: base => ({ ...base, fontSize: 'var(--bl-input-font-size, 0.85rem)' }),
+                                                        multiValue: base => ({ ...base, fontSize: '0.75rem' })
+                                                    }}
                                                     options={itemOptions}
                                                     value={editForm.bundle_items.map(si => ({ value: si.item_id, label: si.item_name }))}
                                                     onChange={handleEditMultiSelectChange}
@@ -273,23 +303,23 @@ export default function BundleManager() {
                                         </>
                                     ) : (
                                         <>
-                                            <td>
+                                            <td data-label="Bundle Name">
                                                 <strong>{bundle.name}</strong><br />
                                                 <span className="is-size-7 has-text-grey">{bundle.sku}</span>
                                             </td>
-                                            <td>
+                                            <td data-label="Items Included">
                                                 <div className="tags">
                                                     {bundle.bundle_items?.map((bi, i) => (
                                                         <span key={i} className="tag is-light is-info"><strong>{bi.quantity}x</strong>&nbsp;{bi.item_name}</span>
                                                     ))}
                                                 </div>
                                             </td>
-                                            <td>
+                                            <td data-label="Price">
                                                 <strong>${toDollarsData(bundle.price_cents)}</strong><br />
                                                 <span className="is-size-7 has-text-grey">{bundle.revenue_account}</span>
                                             </td>
-                                            <td>{bundle.is_quick_access ? <span className="tag is-success">Yes</span> : <span className="tag is-light">No</span>}</td>
-                                            <td>
+                                            <td data-label="Quick Access">{bundle.is_quick_access ? <span className="tag is-success">Yes</span> : <span className="tag is-light">No</span>}</td>
+                                            <td data-label="Actions">
                                                 <div className="buttons are-small">
                                                     <button className="button is-info is-small is-light" onClick={() => handleEditClick(bundle)}>
                                                         <span className="icon"><PenBold size={14} /></span>

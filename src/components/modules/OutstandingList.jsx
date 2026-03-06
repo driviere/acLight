@@ -1,15 +1,17 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { toDollarsData, toCents } from '../../utils/moneyUtils';
 import { processInvoicePayment } from '../../services/journalService';
 import { useAuth } from '../../contexts/AuthContext';
+import { useTenant } from '../../contexts/TenantContext';
 import { DocumentTextBold, BillBold, HandMoneyBold, AddCircleBold } from 'solar-icon-set';
-import { PageHeader } from '../../App';
+import PageLayout from '../layout/PageLayout';
 
 // ── Payment Modal ─────────────────────────────────────────────
 const PaymentModal = ({ invoice, type, isActive, onClose, onSuccess }) => {
     const { currentUser } = useAuth();
+    const { tenantId } = useTenant();
     const [amount, setAmount] = useState('');
     const [refNo, setRefNo] = useState('');
     const [loading, setLoading] = useState(false);
@@ -33,7 +35,7 @@ const PaymentModal = ({ invoice, type, isActive, onClose, onSuccess }) => {
             const paymentCents = toCents(amount);
             if (paymentCents <= 0) throw new Error("Payment must be greater than zero.");
             if (paymentCents > invoice.outstanding_cents) throw new Error("Payment exceeds remaining balance.");
-            await processInvoicePayment(invoice.id, paymentCents, type, { created_by: currentUser.uid, refNo });
+            await processInvoicePayment(tenantId, invoice.id, paymentCents, type, { created_by: currentUser.uid, refNo });
             onSuccess();
         } catch (err) {
             console.error(err);
@@ -135,6 +137,7 @@ const InvoiceRow = ({ inv, type, onPay }) => {
 
 // ── Main Component ────────────────────────────────────────────
 export default function OutstandingList() {
+    const { tenantId } = useTenant();
     const [apInvoices, setApInvoices] = useState([]);
     const [arInvoices, setArInvoices] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -142,9 +145,10 @@ export default function OutstandingList() {
     const [modalData, setModalData] = useState({ isActive: false, invoice: null, type: null });
 
     const fetchOutstanding = async () => {
+        if (!tenantId) return;
         setLoading(true);
         try {
-            const q = query(collection(db, 'journal_entries'), where('status', 'in', ['unpaid', 'partial']));
+            const q = query(collection(db, 'tenants', tenantId, 'journal_entries'), where('status', 'in', ['unpaid', 'partial']));
             const snap = await getDocs(q);
             const apList = [], arList = [];
             snap.forEach(doc => {
@@ -161,7 +165,7 @@ export default function OutstandingList() {
         setLoading(false);
     };
 
-    useEffect(() => { fetchOutstanding(); }, []);
+    useEffect(() => { fetchOutstanding(); }, [tenantId]);
 
     const openModal = (invoice, type) => setModalData({ isActive: true, invoice, type });
     const closeModal = () => setModalData({ isActive: false, invoice: null, type: null });
@@ -171,12 +175,11 @@ export default function OutstandingList() {
     }
 
     return (
-        <div>
-            <PageHeader
-                title="AR / AP Outstanding"
-                subtitle="Apply payments and receipts against specific invoices and bills."
-                icon={<DocumentTextBold size={24} />}
-            />
+        <PageLayout
+            title="AR / AP Outstanding"
+            subtitle="Apply payments and receipts against specific invoices and bills."
+            icon={<DocumentTextBold size={24} />}
+        >
 
             {/* ── Tabs ── */}
             <div className="tabs is-boxed is-medium mb-0">
@@ -304,6 +307,6 @@ export default function OutstandingList() {
                 onClose={closeModal}
                 onSuccess={() => { closeModal(); fetchOutstanding(); }}
             />
-        </div>
+        </PageLayout>
     );
 }

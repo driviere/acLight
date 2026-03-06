@@ -21,7 +21,7 @@ const isDebitNormal = (accountType) => {
 
 /**
  * Creates a new double-entry journal entry and updates corresponding account balances atomically.
- * 
+ * @param {string} tenantId - ID of the tenant
  * @param {string} type - e.g., 'sale', 'purchase', 'payment', 'check', 'waste'
  * @param {string} status - e.g., 'unpaid', 'partial', 'paid'
  * @param {string} refNo - External reference (Invoice #, Receipt #)
@@ -31,6 +31,7 @@ const isDebitNormal = (accountType) => {
  * @param {Object} metadata - { created_by, vendor_name, customer_name, items }
  */
 export const createJournalEntry = async (
+    tenantId,
     type,
     status,
     refNo,
@@ -39,6 +40,7 @@ export const createJournalEntry = async (
     lines,
     metadata
 ) => {
+    if (!tenantId) throw new Error("tenantId is required");
     // 1. Senior Engineer Constraint: Validate Double-Entry Math BEFORE interacting with DB
     const netAmounts = lines.map(l => l.debit - l.credit);
     if (!isBalanced(netAmounts)) {
@@ -63,7 +65,7 @@ export const createJournalEntry = async (
             for (const line of lines) {
                 if (!line.account_id) throw new Error("Missing account_id in transaction line.");
 
-                const accountRef = doc(db, ACCOUNTS_COLLECTION, line.account_id);
+                const accountRef = doc(db, 'tenants', tenantId, ACCOUNTS_COLLECTION, line.account_id);
                 const snap = await transaction.get(accountRef);
 
                 if (!snap.exists()) {
@@ -74,7 +76,7 @@ export const createJournalEntry = async (
 
             // --- WRITE PHASE ---
             // Prepare the new journal entry
-            const journalRef = doc(collection(db, JOURNAL_COLLECTION));
+            const journalRef = doc(collection(db, 'tenants', tenantId, JOURNAL_COLLECTION));
             const entryData = {
                 date: Timestamp.now(),
                 type,
@@ -120,14 +122,16 @@ export const createJournalEntry = async (
  * Voids a journal entry by atomically reversing all account balance effects.
  * The original entry is preserved for audit — only status and metadata change.
  * 
+ * @param {string} tenantId - ID of the tenant
  * @param {string} journalId - ID of the journal entry to void
  * @param {string} userId - UID of the user performing the void
  */
-export const voidJournalEntry = async (journalId, userId) => {
+export const voidJournalEntry = async (tenantId, journalId, userId) => {
+    if (!tenantId) throw new Error("tenantId is required");
     try {
         await runTransaction(db, async (transaction) => {
             // --- READ PHASE ---
-            const journalRef = doc(db, JOURNAL_COLLECTION, journalId);
+            const journalRef = doc(db, 'tenants', tenantId, JOURNAL_COLLECTION, journalId);
             const journalSnap = await transaction.get(journalRef);
 
             if (!journalSnap.exists()) {
@@ -144,7 +148,7 @@ export const voidJournalEntry = async (journalId, userId) => {
             const lines = journalData.lines || [];
             const accountSnaps = [];
             for (const line of lines) {
-                const accountRef = doc(db, ACCOUNTS_COLLECTION, line.account_id);
+                const accountRef = doc(db, 'tenants', tenantId, ACCOUNTS_COLLECTION, line.account_id);
                 const snap = await transaction.get(accountRef);
                 if (!snap.exists()) {
                     throw new Error(`Account ${line.account_id} does not exist.`);
@@ -191,12 +195,14 @@ export const voidJournalEntry = async (journalId, userId) => {
 /**
  * Processes a payment specifically against an existing invoice/bill.
  * Atomically creates the payment journal entry while reducing the invoice's outstanding balance.
+ * @param {string} tenantId
  */
-export const processInvoicePayment = async (journalId, paymentCents, paymentType, metadata) => {
+export const processInvoicePayment = async (tenantId, journalId, paymentCents, paymentType, metadata) => {
+    if (!tenantId) throw new Error("tenantId is required");
     try {
         await runTransaction(db, async (transaction) => {
             // --- READ PHASE ---
-            const journalRef = doc(db, JOURNAL_COLLECTION, journalId);
+            const journalRef = doc(db, 'tenants', tenantId, JOURNAL_COLLECTION, journalId);
             const journalSnap = await transaction.get(journalRef);
             if (!journalSnap.exists()) throw new Error("Invoice not found.");
 
@@ -218,7 +224,7 @@ export const processInvoicePayment = async (journalId, paymentCents, paymentType
             // Read all involved accounts
             const accountSnaps = [];
             for (const line of lines) {
-                const accountRef = doc(db, ACCOUNTS_COLLECTION, line.account_id);
+                const accountRef = doc(db, 'tenants', tenantId, ACCOUNTS_COLLECTION, line.account_id);
                 const snap = await transaction.get(accountRef);
                 if (!snap.exists()) throw new Error(`Account ${line.account_id} does not exist.`);
                 accountSnaps.push({ snap, line });
@@ -236,7 +242,7 @@ export const processInvoicePayment = async (journalId, paymentCents, paymentType
             });
 
             // 2. Create the payment journal entry attached to this invoice
-            const paymentRef = doc(collection(db, JOURNAL_COLLECTION));
+            const paymentRef = doc(collection(db, 'tenants', tenantId, JOURNAL_COLLECTION));
             const entryType = paymentType === 'receive' ? 'payment' : 'payment_sent';
             transaction.set(paymentRef, {
                 date: Timestamp.now(),

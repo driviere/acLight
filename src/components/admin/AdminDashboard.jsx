@@ -3,14 +3,15 @@ import { db } from '../../firebase';
 import { doc, setDoc } from 'firebase/firestore';
 import { getAuth, createUserWithEmailAndPassword } from 'firebase/auth';
 import { initializeApp } from 'firebase/app';
-import { UserPlusBold, BoxBold, UsersGroupTwoRoundedBold, BuildingsBold, SettingsBold, ChartBold, LayersBold } from 'solar-icon-set';
+import { UserPlusBold, BoxBold, UsersGroupTwoRoundedBold, BuildingsBold, SettingsBold, ChartBold, LayersBold, PaletteBold, UserCircleBold } from 'solar-icon-set';
 import CustomerManager from './CustomerManager';
 import VendorManager from './VendorManager';
 import ItemManager from './ItemManager';
 import BundleManager from './BundleManager';
 import UserManager from './UserManager';
-import AccountManager from './AccountManager';
-import { PageHeader } from '../../App';
+import BrandingManager from './BrandingManager';
+import AccountManager from './AccountManager'; // Account/security manager
+import PageLayout from '../layout/PageLayout';
 
 // Secondary Firebase app for creating users without logging out current admin.
 const tempApp = initializeApp({
@@ -29,22 +30,21 @@ const TABS = [
     { id: 'bundles', label: 'Bundles', icon: <LayersBold size={16} /> },
     { id: 'customers', label: 'Customers', icon: <UsersGroupTwoRoundedBold size={16} /> },
     { id: 'vendors', label: 'Vendors', icon: <BuildingsBold size={16} /> },
-    { id: 'accounts', label: 'Accounts', icon: <ChartBold size={16} /> },
+    { id: 'branding', label: 'Branding', icon: <PaletteBold size={16} /> },
+    { id: 'account_security', label: 'Account', icon: <UserCircleBold size={16} /> },
 ];
 
 export default function AdminDashboard() {
     const [activeTab, setActiveTab] = useState('users');
 
     return (
-        <div>
-            <PageHeader
-                title="Admin Dashboard"
-                subtitle="Manage users, inventory, customers, and vendors."
-                icon={<SettingsBold size={24} />}
-            />
-
-            {/* Bulma Tabs */}
-            <div className="tabs is-boxed mb-5">
+        <PageLayout
+            title="Admin Dashboard"
+            subtitle="Manage users, inventory, customers, and vendors."
+            icon={<SettingsBold size={24} />}
+        >
+            {/* Bulma Tabs as Pills */}
+            <div className="tabs is-pills mb-5">
                 <ul>
                     {TABS.map(tab => (
                         <li key={tab.id} className={activeTab === tab.id ? 'is-active' : ''}>
@@ -63,7 +63,8 @@ export default function AdminDashboard() {
             {activeTab === 'bundles' && <BundleManager />}
             {activeTab === 'customers' && <CustomerManager />}
             {activeTab === 'vendors' && <VendorManager />}
-            {activeTab === 'accounts' && <AccountManager />}
-        </div>
+            {activeTab === 'branding' && <BrandingManager />}
+            {activeTab === 'account_security' && <AccountManager />}
+        </PageLayout>
     );
 }

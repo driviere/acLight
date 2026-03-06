@@ -3,6 +3,7 @@ import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { toDollarsData } from '../../utils/moneyUtils';
 import { BanknoteBold, BuildingsBold, ChartSquareBold, BillBold } from 'solar-icon-set';
+import { useTenant } from '../../contexts/TenantContext';
 
 export default function TopLevelBar() {
     const [assetsCents, setAssetsCents] = useState(0);
@@ -10,12 +11,13 @@ export default function TopLevelBar() {
     const [revenueCents, setRevenueCents] = useState(0);
     const [expensesCents, setExpensesCents] = useState(0);
     const [loading, setLoading] = useState(true);
+    const { tenantId } = useTenant();
 
     useEffect(() => {
         const fetchBalances = async () => {
             try {
                 // Fetch all accounts to separate by type
-                const q = query(collection(db, 'accounts'));
+                const q = query(collection(db, 'tenants', tenantId, 'accounts'));
                 const querySnapshot = await getDocs(q);
 
                 let assets = 0;
@@ -41,39 +43,43 @@ export default function TopLevelBar() {
             setLoading(false);
         };
 
-        fetchBalances();
-    }, []);
+        if (tenantId) {
+            fetchBalances();
+        } else {
+            setLoading(false);
+        }
+    }, [tenantId]);
 
     if (loading) {
         return <div className="box has-text-centered p-3 mb-5"><span className="button is-loading is-white"></span></div>;
     }
 
-    const statItem = (icon, label, value, colorClass) => (
-        <div style={{ textAlign: 'center' }}>
-            <p className="heading is-size-7 mb-1 has-text-grey" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
-                <span className="icon is-small">{icon}</span>
-                {label}
-            </p>
-            <p className={`title is-5 ${colorClass}`} style={{ marginBottom: 0 }}>
+    const statCard = (icon, label, value, gradClass) => (
+        <div className={`bl-card-premium p-4 has-text-white`} style={{
+            background: `var(--bl-grad-${gradClass})`,
+            minWidth: '140px',
+            borderRadius: '16px',
+            boxShadow: '0 8px 20px rgba(0,0,0,0.1)'
+        }}>
+            <div className="is-flex is-align-items-center mb-2" style={{ opacity: 0.9 }}>
+                <span className="icon is-small mr-2">{icon}</span>
+                <span className="is-size-7 has-text-weight-bold is-uppercase" style={{ letterSpacing: '0.5px' }}>{label}</span>
+            </div>
+            <div className="title is-4 has-text-white" style={{ marginBottom: 0 }}>
                 ${toDollarsData(value)}
-            </p>
+            </div>
         </div>
     );
 
     return (
-        <div className="box mb-5 p-4" style={{ borderRadius: '12px', borderTop: '4px solid #00d1b2' }}>
-            <div style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(2, 1fr)',
-                gap: '1rem',
-            }}
-                className="top-level-grid"
-            >
-                {statItem(<BanknoteBold />, 'Total Assets', assetsCents, 'has-text-success')}
-                {statItem(<BuildingsBold />, 'Total Liabilities', liabilitiesCents, 'has-text-danger')}
-                {statItem(<ChartSquareBold />, 'Total Revenue', revenueCents, 'has-text-primary')}
-                {statItem(<BillBold />, 'Total Expenses', expensesCents, 'has-text-warning')}
+        <div className="mb-5">
+            <div className="top-level-stat-container">
+                {statCard(<BanknoteBold size={18} />, 'Assets', assetsCents, 'primary')}
+                {statCard(<BuildingsBold size={18} />, 'Liabilities', liabilitiesCents, 'danger')}
+                {statCard(<ChartSquareBold size={18} />, 'Revenue', revenueCents, 'purple')}
+                {statCard(<BillBold size={18} />, 'Expenses', expensesCents, 'warning')}
             </div>
+            <style>{`.no-scrollbar::-webkit-scrollbar { display: none; }`}</style>
         </div>
     );
 }

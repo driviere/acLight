@@ -2,14 +2,18 @@ import React, { useState, useEffect } from 'react';
 import { collection, getDocs, addDoc, Timestamp } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { useAuth } from '../../contexts/AuthContext';
+import { useTenant } from '../../contexts/TenantContext';
 import { toDollarsData, isBalanced } from '../../utils/moneyUtils';
 import { useToast } from '../../App';
+import { getNextInvoiceNumber, getNextReceiptNumber } from '../../services/numberingService';
 import Select from 'react-select';
 import CreatableSelect from 'react-select/creatable';
 import { CartLargeMinimalisticBold, AddCircleBold, MinusCircleBold, BoxBold, NotesBold, ArrowLeftBold, HandMoneyBold } from 'solar-icon-set';
+import ReceiptModal from './ReceiptModal';
 
 export default function POSCart({ saleType, goBack }) {
     const { currentUser } = useAuth();
+    const { tenantId } = useTenant();
     const [items, setItems] = useState([]);
     const [customers, setCustomers] = useState([]);
     const [cart, setCart] = useState([]);
@@ -18,15 +22,17 @@ export default function POSCart({ saleType, goBack }) {
     const [loading, setLoading] = useState(true);
     const [processing, setProcessing] = useState(false);
     const [error, setError] = useState('');
+    const [receiptData, setReceiptData] = useState(null);
     const { showToast, ToastComponent } = useToast();
 
     useEffect(() => {
         const fetchData = async () => {
+            if (!tenantId) return;
             setLoading(true);
             try {
                 const [itemsSnap, custSnap] = await Promise.all([
-                    getDocs(collection(db, 'items')),
-                    saleType === 'credit' ? getDocs(collection(db, 'customers')) : null
+                    getDocs(collection(db, 'tenants', tenantId, 'items')),
+                    saleType === 'credit' ? getDocs(collection(db, 'tenants', tenantId, 'customers')) : null
                 ]);
                 setItems(itemsSnap.docs.map(d => ({ id: d.id, ...d.data() })));
                 if (saleType === 'credit') {
@@ -40,7 +46,7 @@ export default function POSCart({ saleType, goBack }) {
             setLoading(false);
         };
         fetchData();
-    }, [saleType]);
+    }, [saleType, tenantId]);
 
     const quickItems = items.filter(i => i.is_quick_access).sort((a, b) => a.name.localeCompare(b.name));
     const allItemsOptions = items.map(i => ({ value: i.id, label: `${i.name} — $${toDollarsData(i.price_cents)}`, item: i }));
@@ -49,10 +55,10 @@ export default function POSCart({ saleType, goBack }) {
     // ── Inline Customer Creation ──────────────────────────────
     const handleCreateCustomer = async (inputName) => {
         const name = inputName.trim();
-        if (!name) return;
+        if (!name || !tenantId) return;
         setCreatingCustomer(true);
         try {
-            const docRef = await addDoc(collection(db, 'customers'), {
+            const docRef = await addDoc(collection(db, 'tenants', tenantId, 'customers'), {
                 name,
                 createdAt: Timestamp.now(),
                 createdBy: currentUser.uid,
@@ -130,8 +136,11 @@ export default function POSCart({ saleType, goBack }) {
             const outstanding = saleType === 'cash' ? 0 : cartTotalCents;
             const itemsMeta = cart.map(c => `${c.quantity}x ${c.name}`).join(', ');
             const journalType = saleType === 'cash' ? 'cash_sale' : 'credit_sale';
+            const refNo = saleType === 'cash'
+                ? await getNextReceiptNumber(tenantId)
+                : await getNextInvoiceNumber(tenantId);
 
-            await createJournalEntry(journalType, status, `POS-${Date.now()}`, cartTotalCents, outstanding, lines, {
+            await createJournalEntry(tenantId, journalType, status, refNo, cartTotalCents, outstanding, lines, {
                 created_by: currentUser.uid,
                 type: saleType === 'cash' ? 'pos_cash' : 'pos_credit',
                 customer_name: selectedCustomer ? selectedCustomer.label : 'Walk-in Customer',
@@ -139,15 +148,24 @@ export default function POSCart({ saleType, goBack }) {
                 items_summary: itemsMeta
             });
 
-            setCart([]);
-            setSelectedCustomer(null);
             showToast(
                 saleType === 'cash'
                     ? `✅ Cash sale of $${toDollarsData(cartTotalCents)} recorded!`
                     : `🧾 Invoice of $${toDollarsData(cartTotalCents)} generated for ${selectedCustomer.label}!`,
                 'success'
             );
-            setTimeout(goBack, 2000);
+
+            setReceiptData({
+                number: refNo,
+                date: new Date().toISOString(),
+                items: [...cart],
+                total: cartTotalCents,
+                customer: selectedCustomer ? selectedCustomer.label : null,
+                type: saleType
+            });
+
+            setCart([]);
+            setSelectedCustomer(null);
 
         } catch (err) {
             console.error(err);
@@ -369,6 +387,16 @@ export default function POSCart({ saleType, goBack }) {
                     </div>
                 </div>
             </div>
+
+            {/* Receipt Modal */}
+            <ReceiptModal
+                isActive={!!receiptData}
+                receipt={receiptData}
+                onClose={() => {
+                    setReceiptData(null);
+                    goBack();
+                }}
+            />
         </div>
     );
 }

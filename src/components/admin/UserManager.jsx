@@ -3,8 +3,9 @@ import { collection, getDocs, doc, updateDoc, deleteDoc } from 'firebase/firesto
 import { db } from '../../firebase';
 import { getAuth, createUserWithEmailAndPassword } from 'firebase/auth';
 import { initializeApp, getApps } from 'firebase/app';
-import { UserPlusBold, TrashBinMinimalisticBold, PenNewSquareBold, CheckSquareBold, CloseSquareBold, ShieldUserBold, UsersGroupTwoRoundedBold } from 'solar-icon-set';
-import { doc as fsDoc, setDoc } from 'firebase/firestore';
+import { doc as fsDoc, setDoc, query, where } from 'firebase/firestore';
+import { useTenant } from '../../contexts/TenantContext';
+import { UsersGroupTwoRoundedBold, UserPlusBold, CheckSquareBold, CloseSquareBold, ShieldUserBold, PenNewSquareBold, TrashBinMinimalisticBold } from 'solar-icon-set';
 
 // Secondary Firebase app for creating users without logging out current admin
 const FIREBASE_CONFIG = {
@@ -27,6 +28,7 @@ const ROLE_COLORS = { admin: 'is-danger', staff: 'is-info' };
 const ROLE_LABELS = { admin: '🔑 Admin', staff: '👤 Staff' };
 
 export default function UserManager() {
+    const { tenantId } = useTenant();
     const [users, setUsers] = useState([]);
     const [loading, setLoading] = useState(true);
     const [editingId, setEditingId] = useState(null);
@@ -42,9 +44,14 @@ export default function UserManager() {
     const [creating, setCreating] = useState(false);
 
     const fetchUsers = async () => {
+        if (!tenantId) {
+            setLoading(false);
+            return;
+        }
         setLoading(true);
         try {
-            const snap = await getDocs(collection(db, 'users'));
+            const q = query(collection(db, 'users'), where('tenant_id', '==', tenantId));
+            const snap = await getDocs(q);
             const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
             setUsers(list.sort((a, b) => (a.email || '').localeCompare(b.email || '')));
         } catch (err) {
@@ -53,7 +60,7 @@ export default function UserManager() {
         setLoading(false);
     };
 
-    useEffect(() => { fetchUsers(); }, []);
+    useEffect(() => { fetchUsers(); }, [tenantId]);
 
     const startEdit = (user) => {
         setEditingId(user.id);
@@ -89,10 +96,12 @@ export default function UserManager() {
         setCreating(true);
         setMessage({ type: '', text: '' });
         try {
+            if (!tenantId) throw new Error("Tenant ID missing. Cannot create user.");
             const credential = await createUserWithEmailAndPassword(tempAuth, newEmail, newPassword);
             await setDoc(fsDoc(db, 'users', credential.user.uid), {
                 email: newEmail,
                 role: newRole,
+                tenant_id: tenantId,
                 createdAt: new Date()
             });
             await tempAuth.signOut();
@@ -169,7 +178,7 @@ export default function UserManager() {
                 <div className="has-text-centered py-5"><span className="button is-loading is-white is-large"></span></div>
             ) : (
                 <div className="table-container">
-                    <table className="table is-fullwidth is-hoverable">
+                    <table className="table is-fullwidth is-hoverable bl-table-responsive">
                         <thead>
                             <tr>
                                 <th>Email</th>
@@ -210,19 +219,19 @@ export default function UserManager() {
                                     </tr>
                                 ) : (
                                     <tr key={u.id}>
-                                        <td className="is-vcentered">
+                                        <td data-label="Email" className="is-vcentered">
                                             <span className="icon mr-1 has-text-grey"><ShieldUserBold size={14} /></span>
                                             {u.email || <span className="has-text-grey">(UID: {u.id.substring(0, 12)}…)</span>}
                                         </td>
-                                        <td className="is-vcentered">
+                                        <td data-label="Role" className="is-vcentered">
                                             <span className={`tag ${ROLE_COLORS[u.role] || 'is-light'}`}>
                                                 {ROLE_LABELS[u.role] || u.role}
                                             </span>
                                         </td>
-                                        <td className="is-vcentered has-text-grey is-size-7">
+                                        <td data-label="Created" className="is-vcentered has-text-grey is-size-7">
                                             {u.createdAt?.seconds ? new Date(u.createdAt.seconds * 1000).toLocaleDateString() : '—'}
                                         </td>
-                                        <td className="is-vcentered">
+                                        <td data-label="Actions" className="is-vcentered">
                                             <div className="buttons are-small">
                                                 <button className="button is-info is-light" onClick={() => startEdit(u)} title="Change role">
                                                     <span className="icon"><PenNewSquareBold size={14} /></span>

@@ -2,10 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { toDollarsData, toCents } from '../../utils/moneyUtils';
+import { useTenant } from '../../contexts/TenantContext';
 import { getAllAccounts } from '../../services/accountService';
 import { BoxBold, AddCircleBold, TrashBinMinimalisticBold, PenBold } from 'solar-icon-set';
 
 export default function ItemManager() {
+    const { tenantId } = useTenant();
     const [items, setItems] = useState([]);
     const [revenueAccounts, setRevenueAccounts] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -21,9 +23,10 @@ export default function ItemManager() {
     const [savingId, setSavingId] = useState(null);
 
     const fetchItems = async () => {
+        if (!tenantId) return;
         setLoading(true);
         try {
-            const querySnapshot = await getDocs(collection(db, 'items'));
+            const querySnapshot = await getDocs(collection(db, 'tenants', tenantId, 'items'));
             const itemsList = querySnapshot.docs
                 .map(doc => ({ id: doc.id, ...doc.data() }))
                 .filter(item => item.type !== 'bundle'); // Filter out bundles
@@ -35,17 +38,19 @@ export default function ItemManager() {
     };
 
     useEffect(() => {
+        if (!tenantId) return;
         fetchItems();
         // Fetch revenue accounts for the dropdown
-        getAllAccounts().then(all => {
+        getAllAccounts(tenantId).then(all => {
             setRevenueAccounts(all.filter(a => a.type === 'revenue' && a.active !== false));
         });
-    }, []);
+    }, [tenantId]);
 
     const handleAdd = async (e) => {
         e.preventDefault();
+        if (!tenantId) return;
         try {
-            await addDoc(collection(db, 'items'), {
+            await addDoc(collection(db, 'tenants', tenantId, 'items'), {
                 name,
                 price_cents: toCents(price),
                 sku: sku || name.substring(0, 4).toUpperCase(),
@@ -66,7 +71,7 @@ export default function ItemManager() {
 
     const handleDelete = async (id) => {
         if (window.confirm("Are you sure you want to delete this specific SKU?")) {
-            await deleteDoc(doc(db, 'items', id));
+            await deleteDoc(doc(db, 'tenants', tenantId, 'items', id));
             fetchItems();
         }
     };
@@ -83,10 +88,10 @@ export default function ItemManager() {
     };
 
     const handleSaveEdit = async () => {
-        if (!editForm.name || !editForm.price) return;
+        if (!editForm.name || !editForm.price || !tenantId) return;
         setSavingId(editingId);
         try {
-            await updateDoc(doc(db, 'items', editingId), {
+            await updateDoc(doc(db, 'tenants', tenantId, 'items', editingId), {
                 name: editForm.name,
                 sku: editForm.sku,
                 price_cents: toCents(editForm.price),
@@ -153,7 +158,7 @@ export default function ItemManager() {
 
             {loading ? <p>Loading items...</p> : (
                 <div className="table-container">
-                    <table className="table is-fullwidth is-hoverable is-striped">
+                    <table className="table is-fullwidth is-hoverable is-striped bl-table-responsive">
                         <thead>
                             <tr>
                                 <th>Name</th>
@@ -189,12 +194,12 @@ export default function ItemManager() {
                                         </>
                                     ) : (
                                         <>
-                                            <td>{item.name}</td>
-                                            <td>{item.sku}</td>
-                                            <td>${toDollarsData(item.price_cents)}</td>
-                                            <td className="is-size-7 has-text-grey">{item.revenue_account || '4000_revenue'}</td>
-                                            <td>{item.is_quick_access ? <span className="tag is-success">Yes</span> : <span className="tag is-light">No</span>}</td>
-                                            <td>
+                                            <td data-label="Name">{item.name}</td>
+                                            <td data-label="SKU">{item.sku}</td>
+                                            <td data-label="Price">${toDollarsData(item.price_cents)}</td>
+                                            <td data-label="Account" className="is-size-7 has-text-grey">{item.revenue_account || '4000_revenue'}</td>
+                                            <td data-label="Quick Access">{item.is_quick_access ? <span className="tag is-success">Yes</span> : <span className="tag is-light">No</span>}</td>
+                                            <td data-label="Actions">
                                                 <div className="buttons are-small">
                                                     <button className="button is-info is-small is-light" onClick={() => handleEditClick(item)}>
                                                         <span className="icon"><PenBold size={14} /></span>

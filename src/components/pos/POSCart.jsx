@@ -6,6 +6,7 @@ import { useTenant } from '../../contexts/TenantContext';
 import { toDollarsData, isBalanced } from '../../utils/moneyUtils';
 import { useToast } from '../../App';
 import { getNextInvoiceNumber, getNextReceiptNumber } from '../../services/numberingService';
+import { ensureBaseAccounts } from '../../services/accountService';
 import Select from 'react-select';
 import CreatableSelect from 'react-select/creatable';
 import { CartLargeMinimalisticBold, AddCircleBold, MinusCircleBold, BoxBold, NotesBold, ArrowLeftBold, HandMoneyBold } from 'solar-icon-set';
@@ -23,6 +24,11 @@ export default function POSCart({ saleType, goBack }) {
     const [processing, setProcessing] = useState(false);
     const [error, setError] = useState('');
     const [receiptData, setReceiptData] = useState(null);
+    const [saleDate, setSaleDate] = useState(new Date().toISOString().split('T')[0]);
+    const [discountValue, setDiscountValue] = useState('');
+    const [manualRefNo, setManualRefNo] = useState('');
+    const [customerInvoices, setCustomerInvoices] = useState([]);
+    const [selectedInvoice, setSelectedInvoice] = useState(null);
     const { showToast, ToastComponent } = useToast();
 
     useEffect(() => {
@@ -30,15 +36,14 @@ export default function POSCart({ saleType, goBack }) {
             if (!tenantId) return;
             setLoading(true);
             try {
+                await ensureBaseAccounts(tenantId);
                 const [itemsSnap, custSnap] = await Promise.all([
                     getDocs(collection(db, 'tenants', tenantId, 'items')),
-                    saleType === 'credit' ? getDocs(collection(db, 'tenants', tenantId, 'customers')) : null
+                    getDocs(collection(db, 'tenants', tenantId, 'customers'))
                 ]);
                 setItems(itemsSnap.docs.map(d => ({ id: d.id, ...d.data() })));
-                if (saleType === 'credit') {
-                    const cList = custSnap.docs.map(d => ({ value: d.id, label: d.data().name }));
-                    setCustomers(cList.sort((a, b) => a.label.localeCompare(b.label)));
-                }
+                const cList = custSnap.docs.map(d => ({ value: d.id, label: d.data().name }));
+                setCustomers(cList.sort((a, b) => a.label.localeCompare(b.label)));
             } catch (err) {
                 console.error("Error fetching POS data", err);
                 setError("Failed to load inventory. Check your connection.");
@@ -48,9 +53,47 @@ export default function POSCart({ saleType, goBack }) {
         fetchData();
     }, [saleType, tenantId]);
 
-    const quickItems = items.filter(i => i.is_quick_access).sort((a, b) => a.name.localeCompare(b.name));
-    const allItemsOptions = items.map(i => ({ value: i.id, label: `${i.name} — $${toDollarsData(i.price_cents)}`, item: i }));
+    // ── Fetch Invoices for Selected Customer (Returns only) ────
+    useEffect(() => {
+        const fetchInvoices = async () => {
+            if (saleType === 'return' && selectedCustomer && tenantId) {
+                try {
+                    const { collection, query, where, getDocs } = await import('firebase/firestore');
+                    const q = query(
+                        collection(db, 'tenants', tenantId, 'journal_entries'),
+                        where('metadata.customer_id', '==', selectedCustomer.value),
+                        where('status', 'in', ['unpaid', 'partial'])
+                    );
+                    const snap = await getDocs(q);
+                    setCustomerInvoices(snap.docs.map(d => ({
+                        id: d.id,
+                        label: `${d.data().ref_no || d.id} — Bal: $${toDollarsData(d.data().outstanding_cents)}`,
+                        value: d.id,
+                        ...d.data()
+                    })));
+                } catch (err) {
+                    console.error("Error fetching customer invoices:", err);
+                }
+            } else {
+                setCustomerInvoices([]);
+                setSelectedInvoice(null);
+            }
+        };
+        fetchInvoices();
+    }, [selectedCustomer, saleType, tenantId]);
+
+    const availableItems = (saleType === 'return' && selectedInvoice)
+        ? items.filter(i => selectedInvoice.metadata?.items?.some(invItem => invItem.id === i.id))
+        : items;
+
+    const quickItems = availableItems.filter(i => i.is_quick_access).sort((a, b) => a.name.localeCompare(b.name));
+    const allItemsOptions = availableItems.map(i => ({ value: i.id, label: `${i.name} — $${toDollarsData(i.price_cents)}`, item: i }));
     const cartCount = cart.reduce((sum, c) => sum + c.quantity, 0);
+
+    // Clear cart if invoice changes
+    useEffect(() => {
+        setCart([]);
+    }, [selectedInvoice]);
 
     // ── Inline Customer Creation ──────────────────────────────
     const handleCreateCustomer = async (inputName) => {
@@ -114,7 +157,15 @@ export default function POSCart({ saleType, goBack }) {
         setError('');
 
         try {
-            const debitAccount = saleType === 'cash' ? '1000_cash' : '1200_ar';
+            // Calculate discount
+            const discountCents = Math.round((parseFloat(discountValue) || 0) * 100);
+            const payableTotal = cartTotalCents - discountCents;
+
+            if (payableTotal < 0) throw new Error("Discount cannot exceed total.");
+
+            const isReturn = saleType === 'return';
+            const debitAccount = isReturn ? '4060_returns' : (saleType === 'cash' ? '1000_cash' : '1200_ar');
+            const creditAccount = isReturn ? (selectedCustomer ? '1200_ar' : '1000_cash') : null;
 
             // Group items by their revenue_account and build one credit line per account
             const revenueGroups = {};
@@ -122,50 +173,86 @@ export default function POSCart({ saleType, goBack }) {
                 const acct = c.revenue_account || '4000_revenue';
                 revenueGroups[acct] = (revenueGroups[acct] || 0) + (c.price_cents * c.quantity);
             });
+
             const lines = [
-                { account_id: debitAccount, debit: cartTotalCents, credit: 0 },
+                { account_id: debitAccount, debit: payableTotal, credit: 0 },
+                ...(!isReturn && discountCents > 0 ? [{ account_id: '4050_discounts', debit: discountCents, credit: 0 }] : []),
                 ...Object.entries(revenueGroups).map(([acct, cents]) => (
-                    { account_id: acct, debit: 0, credit: cents }
-                ))
+                    { account_id: acct, debit: 0, credit: isReturn ? 0 : cents }
+                )),
+                ...(isReturn ? [{ account_id: creditAccount, debit: 0, credit: payableTotal }] : [])
             ];
 
             if (!isBalanced(lines.map(l => l.debit - l.credit))) throw new Error("Journal entry not balanced.");
 
-            const { createJournalEntry } = await import('../../services/journalService');
-            const status = saleType === 'cash' ? 'paid' : 'unpaid';
-            const outstanding = saleType === 'cash' ? 0 : cartTotalCents;
+            const { createJournalEntry, processInvoiceReturn } = await import('../../services/journalService');
+            const status = isReturn ? 'paid' : (saleType === 'cash' ? 'paid' : 'unpaid');
+            const outstanding = isReturn ? (selectedCustomer ? -payableTotal : 0) : (saleType === 'cash' ? 0 : payableTotal);
             const itemsMeta = cart.map(c => `${c.quantity}x ${c.name}`).join(', ');
-            const journalType = saleType === 'cash' ? 'cash_sale' : 'credit_sale';
-            const refNo = saleType === 'cash'
-                ? await getNextReceiptNumber(tenantId)
-                : await getNextInvoiceNumber(tenantId);
+            const journalType = isReturn ? 'sales_return' : (saleType === 'cash' ? 'cash_sale' : 'credit_sale');
 
-            await createJournalEntry(tenantId, journalType, status, refNo, cartTotalCents, outstanding, lines, {
-                created_by: currentUser.uid,
-                type: saleType === 'cash' ? 'pos_cash' : 'pos_credit',
-                customer_name: selectedCustomer ? selectedCustomer.label : 'Walk-in Customer',
-                customer_id: selectedCustomer ? selectedCustomer.value : null,
-                items_summary: itemsMeta
-            });
+            // Reference Number Logic
+            let refNo = manualRefNo.trim();
+            if (!refNo) {
+                if (isReturn) {
+                    refNo = `RET-${Date.now().toString().slice(-6)}`;
+                } else {
+                    refNo = saleType === 'cash'
+                        ? await getNextReceiptNumber(tenantId)
+                        : await getNextInvoiceNumber(tenantId);
+                }
+            }
+
+            const customTimestamp = Timestamp.fromDate(new Date(saleDate + 'T12:00:00'));
+
+            if (isReturn && selectedInvoice) {
+                await processInvoiceReturn(tenantId, selectedInvoice.value, payableTotal, {
+                    created_by: currentUser.uid,
+                    refNo: refNo,
+                    customer_name: selectedCustomer ? selectedCustomer.label : 'Walk-in Customer',
+                    customer_id: selectedCustomer ? selectedCustomer.value : null,
+                    items_summary: itemsMeta,
+                    items: cart.map(c => ({ id: c.id, name: c.name, price_cents: c.price_cents, quantity: c.quantity })),
+                    subtotal_cents: cartTotalCents
+                });
+            } else {
+                await createJournalEntry(tenantId, journalType, status, refNo, payableTotal, outstanding, lines, {
+                    created_by: currentUser.uid,
+                    type: isReturn ? 'pos_return' : (saleType === 'cash' ? 'pos_cash' : 'pos_credit'),
+                    customer_name: selectedCustomer ? selectedCustomer.label : 'Walk-in Customer',
+                    customer_id: selectedCustomer ? selectedCustomer.value : null,
+                    items_summary: itemsMeta,
+                    items: cart.map(c => ({ id: c.id, name: c.name, price_cents: c.price_cents, quantity: c.quantity })),
+                    customDate: customTimestamp,
+                    discount_cents: isReturn ? 0 : discountCents,
+                    subtotal_cents: cartTotalCents
+                });
+            }
 
             showToast(
-                saleType === 'cash'
-                    ? `✅ Cash sale of $${toDollarsData(cartTotalCents)} recorded!`
-                    : `🧾 Invoice of $${toDollarsData(cartTotalCents)} generated for ${selectedCustomer.label}!`,
+                isReturn
+                    ? `🔄 Return of $${toDollarsData(payableTotal)} processed!`
+                    : (saleType === 'cash'
+                        ? `✅ Cash sale of $${toDollarsData(payableTotal)} recorded!`
+                        : `🧾 Invoice of $${toDollarsData(payableTotal)} generated for ${selectedCustomer.label}!`),
                 'success'
             );
 
             setReceiptData({
                 number: refNo,
-                date: new Date().toISOString(),
+                date: customTimestamp.toDate().toISOString(),
                 items: [...cart],
-                total: cartTotalCents,
+                total: payableTotal,
+                discount: discountCents,
+                subtotal: cartTotalCents,
                 customer: selectedCustomer ? selectedCustomer.label : null,
                 type: saleType
             });
 
             setCart([]);
             setSelectedCustomer(null);
+            setDiscountValue('');
+            setManualRefNo('');
 
         } catch (err) {
             console.error(err);
@@ -196,10 +283,10 @@ export default function POSCart({ saleType, goBack }) {
                 <div className="level-right">
                     <div>
                         <h2 className="title is-4 mb-0" style={{ fontWeight: 800 }}>
-                            {saleType === 'cash' ? '💵 Cash Sale' : '🧾 Credit Sale / Invoice'}
+                            {saleType === 'cash' ? '💵 Cash Sale' : (saleType === 'return' ? '🔄 Sales Return' : '🧾 Credit Sale / Invoice')}
                         </h2>
                         <p className="has-text-grey is-size-7">
-                            {saleType === 'cash' ? 'Payments received immediately' : 'Invoice will appear in AR / AP'}
+                            {saleType === 'cash' ? 'Payments received immediately' : (saleType === 'return' ? 'Refund or Credit Note' : 'Invoice will appear in AR / AP')}
                         </p>
                     </div>
                 </div>
@@ -212,32 +299,78 @@ export default function POSCart({ saleType, goBack }) {
                 </div>
             )}
 
-            {/* Credit customer selector */}
-            {saleType === 'credit' && (
-                <div className="box mb-4" style={{ background: '#eff6ff', border: '2px solid #dbeafe' }}>
-                    <label className="label">
-                        <span className="icon mr-1"><BoxBold size={14} /></span>
-                        Customer Account <span className="has-text-danger">*</span>
-                    </label>
-                    <CreatableSelect
-                        options={customers}
-                        value={selectedCustomer}
-                        onChange={setSelectedCustomer}
-                        onCreateOption={handleCreateCustomer}
-                        isLoading={creatingCustomer}
-                        isDisabled={creatingCustomer}
-                        placeholder="Search or type a new customer name..."
-                        isClearable
-                        formatCreateLabel={(inputValue) => (
-                            <span>
-                                <strong>➕ Add new customer:</strong> "{inputValue}"
-                            </span>
-                        )}
-                        noOptionsMessage={() => 'Type a customer name to search or create'}
-                    />
-                    <p className="help mt-2">Add customers via the Admin → Customers section.</p>
+            {/* Transaction Details (Customer, Date, Ref) */}
+            <div className="box mb-4" style={{
+                background: saleType === 'credit' ? '#eff6ff' : '#f8fafc',
+                border: saleType === 'credit' ? '2px solid #dbeafe' : '1px solid #e2e8f0'
+            }}>
+                <div className="columns is-multiline">
+                    <div className="column is-12">
+                        <label className="label">
+                            <span className="icon mr-1"><BoxBold size={14} /></span>
+                            Customer Account {saleType === 'credit' && <span className="has-text-danger">*</span>}
+                        </label>
+                        <CreatableSelect
+                            options={customers}
+                            value={selectedCustomer}
+                            onChange={setSelectedCustomer}
+                            onCreateOption={handleCreateCustomer}
+                            isLoading={creatingCustomer}
+                            isDisabled={creatingCustomer}
+                            placeholder={saleType === 'cash' ? "Select customer (optional)..." : "Search or type a new customer name..."}
+                            isClearable
+                            formatCreateLabel={(inputValue) => (
+                                <span>
+                                    <strong>➕ Add new customer:</strong> "{inputValue}"
+                                </span>
+                            )}
+                            noOptionsMessage={() => 'Type a customer name to search or create'}
+                        />
+                        {saleType === 'credit' && <p className="help mt-2">Required for credit sales / invoices.</p>}
+                    </div>
+
+                    <div className="column is-6">
+                        <label className="label">Transaction Date</label>
+                        <div className="control">
+                            <input
+                                className="input"
+                                type="date"
+                                value={saleDate}
+                                onChange={(e) => setSaleDate(e.target.value)}
+                            />
+                        </div>
+                    </div>
+
+                    <div className="column is-6">
+                        <label className="label">Manual {saleType === 'cash' ? 'Receipt' : (saleType === 'return' ? 'Return' : 'Bill')} # (Optional)</label>
+                        <div className="control">
+                            <input
+                                className="input"
+                                type="text"
+                                placeholder={saleType === 'cash' ? "e.g. REC-001" : (saleType === 'return' ? "e.g. RET-001" : "e.g. INV-101")}
+                                value={manualRefNo}
+                                onChange={(e) => setManualRefNo(e.target.value)}
+                            />
+                        </div>
+                    </div>
+
+                    {saleType === 'return' && selectedCustomer && (
+                        <div className="column is-12">
+                            <label className="label">Apply Return to Outstanding Invoice</label>
+                            <div className="control">
+                                <Select
+                                    options={customerInvoices}
+                                    value={selectedInvoice}
+                                    onChange={setSelectedInvoice}
+                                    placeholder={customerInvoices.length > 0 ? "Select an invoice..." : "No outstanding invoices found"}
+                                    isClearable
+                                />
+                            </div>
+                            {customerInvoices.length > 0 && <p className="help">Linking to an invoice will reduce its outstanding balance directly.</p>}
+                        </div>
+                    )}
                 </div>
-            )}
+            </div>
 
             <div className="columns is-desktop">
                 {/* ─── Left: Item Selection ─── */}
@@ -364,24 +497,45 @@ export default function POSCart({ saleType, goBack }) {
 
                         {/* Total & Checkout */}
                         <div className="is-sticky-bottom" style={{ margin: '-1.25rem', borderRadius: '0 0 12px 12px', marginTop: '1rem' }}>
+                            <div className="field mb-3">
+                                <label className="label is-small">Discount Amount ($)</label>
+                                <div className="control">
+                                    <input
+                                        className="input is-small"
+                                        type="number"
+                                        placeholder="0.00"
+                                        value={discountValue}
+                                        onChange={(e) => setDiscountValue(e.target.value)}
+                                        step="0.01"
+                                        min="0"
+                                    />
+                                </div>
+                            </div>
+
                             <div className="level is-mobile mb-3">
                                 <div className="level-left">
-                                    <span className="title is-4 mb-0">Total</span>
+                                    <span className="title is-4 mb-0">{saleType === 'return' ? 'Return Value' : 'Total'}</span>
                                 </div>
                                 <div className="level-right">
-                                    <span className="title is-3 mb-0" style={{ color: '#00b894', fontWeight: 800 }}>
-                                        ${toDollarsData(cartTotalCents)}
+                                    <span className="title is-3 mb-0" style={{ color: saleType === 'return' ? '#e53e3e' : '#00b894', fontWeight: 800 }}>
+                                        ${toDollarsData(cartTotalCents - (saleType === 'return' ? 0 : Math.round((parseFloat(discountValue) || 0) * 100)))}
                                     </span>
                                 </div>
                             </div>
                             <button
-                                className={`button is-primary is-large is-fullwidth ${processing ? 'is-loading' : ''}`}
+                                className={`button ${saleType === 'return' ? 'is-danger' : 'is-primary'} is-large is-fullwidth ${processing ? 'is-loading' : ''}`}
                                 disabled={cart.length === 0 || processing}
                                 onClick={handleCheckout}
                                 style={{ borderRadius: '12px', height: '72px', fontSize: '1.2rem', fontWeight: 700 }}
                             >
-                                <span className="icon is-large mr-2"><HandMoneyBold size={28} /></span>
-                                <span>{saleType === 'cash' ? 'Complete Cash Sale' : 'Generate Invoice'}</span>
+                                <span className="icon is-large mr-2">
+                                    {saleType === 'return' ? <AddCircleBold size={28} /> : <HandMoneyBold size={28} />}
+                                </span>
+                                <span>
+                                    {saleType === 'return'
+                                        ? 'Process Return'
+                                        : (saleType === 'cash' ? 'Complete Cash Sale' : 'Generate Invoice')}
+                                </span>
                             </button>
                         </div>
                     </div>

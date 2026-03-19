@@ -78,8 +78,9 @@ export const createJournalEntry = async (
             // Prepare the new journal entry
             const journalRef = doc(collection(db, 'tenants', tenantId, JOURNAL_COLLECTION));
             const entryData = {
-                date: Timestamp.now(),
+                date: metadata?.customDate || Timestamp.now(),
                 type,
+
                 status,
                 ref_no: refNo || '',
                 total_cents: totalCents,
@@ -272,6 +273,89 @@ export const processInvoicePayment = async (tenantId, journalId, paymentCents, p
         });
     } catch (error) {
         console.error("Payment transaction failed: ", error);
+        throw error;
+    }
+};
+
+/**
+ * Processes a return against a specific invoice.
+ * Atomically creates a sales_return entry and reduces the original invoice's outstanding balance.
+ */
+export const processInvoiceReturn = async (tenantId, journalId, returnCents, metadata) => {
+    if (!tenantId) throw new Error("tenantId is required");
+    try {
+        await runTransaction(db, async (transaction) => {
+            // --- READ PHASE ---
+            const invoiceRef = doc(db, 'tenants', tenantId, JOURNAL_COLLECTION, journalId);
+            const invoiceSnap = await transaction.get(invoiceRef);
+            if (!invoiceSnap.exists()) throw new Error("Invoice not found.");
+
+            const invoiceData = invoiceSnap.data();
+            if (invoiceData.outstanding_cents < returnCents) {
+                // We allow it but technically it would create a negative balance or Credit Note surplus
+                // For now, let's keep it tight or allow it if the user wants an over-return?
+                // The prompt says "accepted loss against the invoice", so let's allow it to reduce to 0.
+            }
+
+            const lines = [
+                { account_id: '4060_returns', debit: returnCents, credit: 0 },
+                { account_id: '1200_ar', debit: 0, credit: returnCents }
+            ];
+
+            // Read involved accounts
+            const accountSnaps = [];
+            for (const line of lines) {
+                const accountRef = doc(db, 'tenants', tenantId, ACCOUNTS_COLLECTION, line.account_id);
+                const snap = await transaction.get(accountRef);
+                if (!snap.exists()) throw new Error(`Account ${line.account_id} does not exist.`);
+                accountSnaps.push({ snap, line });
+            }
+
+            // --- DATA COMPUTATION ---
+            const newOutstanding = Math.max(0, invoiceData.outstanding_cents - returnCents);
+            const newStatus = newOutstanding === 0 ? 'paid' : 'partial';
+
+            // --- WRITE PHASE ---
+            // 1. Update original invoice
+            transaction.update(invoiceRef, {
+                status: newStatus,
+                outstanding_cents: newOutstanding
+            });
+
+            // 2. Create the return journal entry
+            const returnRef = doc(collection(db, 'tenants', tenantId, JOURNAL_COLLECTION));
+            transaction.set(returnRef, {
+                date: Timestamp.now(),
+                type: 'sales_return',
+                status: 'paid', // A return is "settled" upon creation
+                ref_no: metadata.refNo || `RET-${Date.now().toString().slice(-6)}`,
+                total_cents: returnCents,
+                outstanding_cents: 0,
+                lines,
+                metadata: {
+                    ...metadata,
+                    related_invoice_id: journalId,
+                    type: 'pos_return_linked'
+                }
+            });
+
+            // 3. Update account balances
+            for (const { snap, line } of accountSnaps) {
+                const accountData = snap.data();
+                let currentBalance = accountData.balance || 0;
+                if (isDebitNormal(accountData.type)) {
+                    currentBalance += line.debit;
+                    currentBalance -= line.credit;
+                } else {
+                    currentBalance += line.credit;
+                    currentBalance -= line.debit;
+                }
+                transaction.update(snap.ref, { balance: currentBalance });
+            }
+        });
+        return true;
+    } catch (error) {
+        console.error("Return transaction failed: ", error);
         throw error;
     }
 };

@@ -16,8 +16,8 @@ export default function POSDashboard() {
                 <p className="subtitle is-6" style={{ color: '#718096' }}>Choose how this transaction will be settled.</p>
             </div>
 
-            <div className="columns is-centered">
-                <div className="column is-5-tablet is-4-desktop">
+            <div className="columns is-centered is-variable is-4">
+                <div className="column is-4">
                     <button
                         className="button is-large is-fullwidth pos-mode-btn cash-btn pos-action-btn"
                         onClick={() => setSaleMode('cash')}
@@ -26,6 +26,8 @@ export default function POSDashboard() {
                             flexDirection: 'column',
                             borderRadius: '20px',
                             gap: '12px',
+                            padding: '2rem',
+                            height: '280px'
                         }}
                     >
                         <span style={{ fontSize: '3rem', lineHeight: 1 }}>💵</span>
@@ -36,7 +38,7 @@ export default function POSDashboard() {
                     </button>
                 </div>
 
-                <div className="column is-5-tablet is-4-desktop">
+                <div className="column is-4">
                     <button
                         className="button is-large is-fullwidth pos-mode-btn credit-btn pos-action-btn"
                         onClick={() => setSaleMode('credit')}
@@ -45,12 +47,37 @@ export default function POSDashboard() {
                             flexDirection: 'column',
                             borderRadius: '20px',
                             gap: '12px',
+                            padding: '2rem',
+                            height: '280px'
                         }}
                     >
                         <span style={{ fontSize: '3rem', lineHeight: 1 }}>🧾</span>
                         <div>
                             <div className="title is-3 has-text-white mb-1" style={{ letterSpacing: '-0.5px' }}>CREDIT SALE</div>
                             <div className="subtitle is-6 has-text-white" style={{ opacity: 0.85 }}>Invoice · B2B Account</div>
+                        </div>
+                    </button>
+                </div>
+
+                <div className="column is-4">
+                    <button
+                        className="button is-large is-fullwidth pos-mode-btn pos-action-btn"
+                        onClick={() => setSaleMode('return')}
+                        style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            borderRadius: '20px',
+                            gap: '12px',
+                            background: 'linear-gradient(135deg, #4a5568 0%, #2d3748 100%)',
+                            border: 'none',
+                            padding: '2rem',
+                            height: '280px'
+                        }}
+                    >
+                        <span style={{ fontSize: '3rem', lineHeight: 1 }}>🔄</span>
+                        <div>
+                            <div className="title is-3 has-text-white mb-1" style={{ letterSpacing: '-0.5px' }}>RETURNS</div>
+                            <div className="subtitle is-6 has-text-white" style={{ opacity: 0.85 }}>Refund · Credit Note</div>
                         </div>
                     </button>
                 </div>

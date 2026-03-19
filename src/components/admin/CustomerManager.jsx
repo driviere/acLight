@@ -1,8 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { collection, getDocs, addDoc, doc, deleteDoc, updateDoc } from 'firebase/firestore';
+import { collection, getDocs, addDoc, doc, deleteDoc, updateDoc, query, where } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { useTenant } from '../../contexts/TenantContext';
-import { UsersGroupTwoRoundedBold, AddCircleBold, TrashBinMinimalisticBold, PenNewSquareBold, CheckSquareBold, CloseSquareBold } from 'solar-icon-set';
+import { toDollarsData } from '../../utils/moneyUtils';
+
+import { UsersGroupTwoRoundedBold, AddCircleBold, TrashBinMinimalisticBold, PenNewSquareBold, CheckSquareBold, CloseSquareBold, HistoryBold } from 'solar-icon-set';
+import CustomerHistory from './CustomerHistory';
+
 
 export default function CustomerManager() {
     const { tenantId } = useTenant();
@@ -18,19 +22,45 @@ export default function CustomerManager() {
     const [editPhone, setEditPhone] = useState('');
     const [editEmail, setEditEmail] = useState('');
     const [saving, setSaving] = useState(false);
+    const [viewingHistory, setViewingHistory] = useState(null);
+
 
     const fetchCustomers = async () => {
         if (!tenantId) return;
         setLoading(true);
         try {
+            // 1. Fetch Customers
             const querySnapshot = await getDocs(collection(db, 'tenants', tenantId, 'customers'));
             const list = querySnapshot.docs.map(d => ({ id: d.id, ...d.data() }));
-            setCustomers(list.sort((a, b) => a.name.localeCompare(b.name)));
+
+            // 2. Fetch Outstanding Journal Entries to calculate balances
+            const q = query(
+                collection(db, 'tenants', tenantId, 'journal_entries'),
+                where('status', 'in', ['unpaid', 'partial'])
+            );
+            const journalsSnap = await getDocs(q);
+
+            const balances = {}; // { customer_id: cents }
+            journalsSnap.forEach(doc => {
+                const data = doc.data();
+                const custId = data.metadata?.customer_id;
+                if (custId) {
+                    balances[custId] = (balances[custId] || 0) + (data.outstanding_cents || 0);
+                }
+            });
+
+            const enriched = list.map(c => ({
+                ...c,
+                balance_cents: balances[c.id] || 0
+            }));
+
+            setCustomers(enriched.sort((a, b) => a.name.localeCompare(b.name)));
         } catch (error) {
             console.error(error);
         }
         setLoading(false);
     };
+
 
     useEffect(() => { fetchCustomers(); }, [tenantId]);
 
@@ -75,8 +105,13 @@ export default function CustomerManager() {
         setSaving(false);
     };
 
+    if (viewingHistory) {
+        return <CustomerHistory customer={viewingHistory} onBack={() => setViewingHistory(null)} />;
+    }
+
     return (
         <div className="box">
+
             <h2 className="title is-4 has-text-info">
                 <span className="icon mr-2"><UsersGroupTwoRoundedBold size={24} /></span>
                 Customer Accounts (AR)
@@ -114,7 +149,7 @@ export default function CustomerManager() {
                             <tr>
                                 <th>Name</th>
                                 <th>Phone</th>
-                                <th>Email</th>
+                                <th className="has-text-right">Balance</th>
                                 <th style={{ width: '120px' }}>Actions</th>
                             </tr>
                         </thead>
@@ -143,14 +178,10 @@ export default function CustomerManager() {
                                                 placeholder="Phone"
                                             />
                                         </td>
-                                        <td>
-                                            <input
-                                                className="input is-small"
-                                                type="email"
-                                                value={editEmail}
-                                                onChange={e => setEditEmail(e.target.value)}
-                                                placeholder="Email"
-                                            />
+                                        <td className="has-text-right is-vcentered">
+                                            <span className="is-size-7 has-text-grey">
+                                                ${toDollarsData(c.balance_cents)}
+                                            </span>
                                         </td>
                                         <td>
                                             <div className="buttons are-small">
@@ -173,9 +204,24 @@ export default function CustomerManager() {
                                     <tr key={c.id}>
                                         <td data-label="Name" className="is-vcentered"><strong>{c.name}</strong></td>
                                         <td data-label="Phone" className="is-vcentered">{c.phone || <span className="has-text-grey-light">—</span>}</td>
-                                        <td data-label="Email" className="is-vcentered">{c.email || <span className="has-text-grey-light">—</span>}</td>
+                                        <td data-label="Balance" className="has-text-right is-vcentered">
+                                            {c.balance_cents > 0 ? (
+                                                <span className="has-text-danger has-text-weight-bold">
+                                                    ${toDollarsData(c.balance_cents)}
+                                                </span>
+                                            ) : (
+                                                <span className="has-text-success">$0.00</span>
+                                            )}
+                                        </td>
                                         <td data-label="Actions" className="is-vcentered">
                                             <div className="buttons are-small">
+                                                <button
+                                                    className="button is-link is-light"
+                                                    onClick={() => setViewingHistory(c)}
+                                                    title="View history"
+                                                >
+                                                    <span className="icon"><HistoryBold size={14} /></span>
+                                                </button>
                                                 <button
                                                     className="button is-info is-light"
                                                     onClick={() => startEdit(c)}
@@ -183,6 +229,7 @@ export default function CustomerManager() {
                                                 >
                                                     <span className="icon"><PenNewSquareBold size={14} /></span>
                                                 </button>
+
                                                 <button
                                                     className="button is-danger is-light"
                                                     onClick={() => handleDelete(c.id)}

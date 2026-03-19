@@ -1,7 +1,9 @@
-import { collection, doc, setDoc, getDocs, updateDoc, Timestamp, query, where, limit } from 'firebase/firestore';
+import { collection, doc, setDoc, getDocs, updateDoc, Timestamp, query, where, limit, getCountFromServer, orderBy } from 'firebase/firestore';
 import { db, auth } from '../firebase';
-import { sendSignInLinkToEmail } from 'firebase/auth';
+
+import { sendSignInLinkToEmail, sendPasswordResetEmail } from 'firebase/auth';
 import { seedChartOfAccounts } from './accountService';
+
 
 /**
  * Super-Admin Service Implementation
@@ -76,3 +78,40 @@ export const updateTenantStatus = async (tenantId, isActive) => {
         updated_at: Timestamp.now()
     });
 };
+
+/**
+ * Sends a password reset email to the given address.
+ * @param {string} email 
+ */
+export const sendAdminPasswordReset = async (email) => {
+    if (!email) throw new Error("Email is required for password reset");
+    await sendPasswordResetEmail(auth, email.trim().toLowerCase());
+};
+
+/**
+ * Fetches activity statistics for a specific tenant (transaction count & last active date).
+ * @param {string} tenantId 
+ */
+export const getTenantActivityStats = async (tenantId) => {
+    try {
+        const jColl = collection(db, TENANTS_COLLECTION, tenantId, 'journal_entries');
+        
+        // 1. Get total transaction count
+        const countSnap = await getCountFromServer(jColl);
+        const totalTransactions = countSnap.data().count;
+
+        // 2. Get latest transaction date
+        const qLatest = query(jColl, orderBy('date', 'desc'), limit(1));
+        const latestSnap = await getDocs(qLatest);
+        let lastActive = null;
+        if (!latestSnap.empty) {
+            lastActive = latestSnap.docs[0].data().date;
+        }
+
+        return { totalTransactions, lastActive };
+    } catch (err) {
+        console.error(`Failed to get activity for tenant ${tenantId}:`, err);
+        return { totalTransactions: 0, lastActive: null };
+    }
+};
+

@@ -27,7 +27,10 @@ export const INITIAL_CHART_OF_ACCOUNTS = [
 
     // REVENUE (Normal Balance: Credit)
     { id: "4000_revenue", name: "Sales Revenue", type: "revenue", balance: 0 },
+    { id: "4050_discounts", name: "Sales Discounts", type: "revenue", balance: 0 },
+    { id: "4060_returns", name: "Sales Returns", type: "revenue", balance: 0 },
     { id: "4100_service", name: "Service Revenue", type: "revenue", balance: 0 },
+
 
     // EXPENSES (Normal Balance: Debit)
     { id: "5000_cogs", name: "Cost of Goods Sold", type: "expense", balance: 0 },
@@ -110,4 +113,35 @@ export const updateAccount = async (tenantId, id, updates) => {
     if (!tenantId) throw new Error("tenantId is required");
     const docRef = doc(db, 'tenants', tenantId, ACCOUNTS_COLLECTION, id);
     await updateDoc(docRef, { ...updates, updated_at: Timestamp.now() });
+};
+
+/**
+ * Ensures all base accounts from INITIAL_CHART_OF_ACCOUNTS exist in the tenant's collection.
+ * Useful for adding new standard accounts (like Returns) to existing tenants.
+ */
+export const ensureBaseAccounts = async (tenantId) => {
+    if (!tenantId) throw new Error("tenantId is required");
+    try {
+        const batch = writeBatch(db);
+        const now = Timestamp.now();
+        let addedCount = 0;
+
+        for (const account of INITIAL_CHART_OF_ACCOUNTS) {
+            const docRef = doc(db, 'tenants', tenantId, ACCOUNTS_COLLECTION, account.id);
+            const snap = await getDoc(docRef);
+            if (!snap.exists()) {
+                batch.set(docRef, { ...account, created_at: now, updated_at: now });
+                addedCount++;
+            }
+        }
+
+        if (addedCount > 0) {
+            await batch.commit();
+            console.log(`Successfully added ${addedCount} missing base accounts.`);
+        }
+        return true;
+    } catch (error) {
+        console.error("Error ensuring base accounts:", error);
+        throw error;
+    }
 };

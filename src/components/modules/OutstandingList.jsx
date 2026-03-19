@@ -5,8 +5,10 @@ import { toDollarsData, toCents } from '../../utils/moneyUtils';
 import { processInvoicePayment } from '../../services/journalService';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTenant } from '../../contexts/TenantContext';
-import { DocumentTextBold, BillBold, HandMoneyBold, AddCircleBold } from 'solar-icon-set';
+import { DocumentTextBold, BillBold, HandMoneyBold, AddCircleBold, EyeBold } from 'solar-icon-set';
 import PageLayout from '../layout/PageLayout';
+import JournalDetailModal from './JournalDetailModal';
+
 
 // ── Payment Modal ─────────────────────────────────────────────
 const PaymentModal = ({ invoice, type, isActive, onClose, onSuccess }) => {
@@ -108,7 +110,8 @@ const PaymentModal = ({ invoice, type, isActive, onClose, onSuccess }) => {
 };
 
 // ── Invoice Row ───────────────────────────────────────────────
-const InvoiceRow = ({ inv, type, onPay }) => {
+const InvoiceRow = ({ inv, type, onPay, onView }) => {
+
     const dateStr = inv.date?.seconds ? new Date(inv.date.seconds * 1000).toLocaleDateString() : 'N/A';
     const name = type === 'ar'
         ? (inv.metadata?.customer_name || 'Counter Sale')
@@ -124,14 +127,24 @@ const InvoiceRow = ({ inv, type, onPay }) => {
                 ${toDollarsData(inv.outstanding_cents)}
             </td>
             <td className="has-text-centered is-vcentered">
-                <button
-                    className={`button is-small ${isAr ? 'is-success' : 'is-danger'}`}
-                    onClick={onPay}
-                >
-                    {isAr ? 'Receive' : 'Pay'}
-                </button>
+                <div className="buttons is-centered">
+                    <button
+                        className={`button is-small ${isAr ? 'is-success' : 'is-danger'}`}
+                        onClick={onPay}
+                    >
+                        {isAr ? 'Receive' : 'Pay'}
+                    </button>
+                    <button
+                        className="button is-small is-info is-light"
+                        onClick={onView}
+                        title="View Details"
+                    >
+                        <span className="icon"><EyeBold size={14} /></span>
+                    </button>
+                </div>
             </td>
         </tr>
+
     );
 };
 
@@ -143,6 +156,8 @@ export default function OutstandingList() {
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState('invoices'); // 'invoices' | 'bills'
     const [modalData, setModalData] = useState({ isActive: false, invoice: null, type: null });
+    const [viewingEntry, setViewingEntry] = useState(null);
+
 
     const fetchOutstanding = async () => {
         if (!tenantId) return;
@@ -239,8 +254,10 @@ export default function OutstandingList() {
                                             inv={inv}
                                             type="ar"
                                             onPay={() => openModal(inv, 'receive')}
+                                            onView={() => setViewingEntry(inv)}
                                         />
                                     ))}
+
                                 </tbody>
                                 <tfoot>
                                     <tr>
@@ -282,8 +299,10 @@ export default function OutstandingList() {
                                             inv={inv}
                                             type="ap"
                                             onPay={() => openModal(inv, 'send')}
+                                            onView={() => setViewingEntry(inv)}
                                         />
                                     ))}
+
                                 </tbody>
                                 <tfoot>
                                     <tr>
@@ -307,6 +326,13 @@ export default function OutstandingList() {
                 onClose={closeModal}
                 onSuccess={() => { closeModal(); fetchOutstanding(); }}
             />
+
+            <JournalDetailModal
+                isActive={!!viewingEntry}
+                entry={viewingEntry}
+                onClose={() => setViewingEntry(null)}
+            />
         </PageLayout>
+
     );
 }

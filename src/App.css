@@ -705,6 +705,11 @@ body {
     background: #a0aec0;
 }
 
+/* --- Modal Overrides --- */
+.modal {
+    z-index: 105; /* higher than .app-header's 100 */
+}
+
 /* ============================================================
    Print Styles (Thermal Receipt)
    ============================================================ */

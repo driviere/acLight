@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { getAllTenants, createTenant, updateTenantStatus } from '../../services/tenantService';
+import { getAllTenants, createTenant, updateTenantStatus, getTenantActivityStats } from '../../services/tenantService';
 import { useToast } from '../../App';
 import { SettingsBold, AddCircleBold, BuildingsBold, UserBold, ShieldCheckBold, RefreshSquareBold } from 'solar-icon-set';
 import PageLayout from '../layout/PageLayout';
@@ -20,7 +20,14 @@ const SuperAdminDashboard = () => {
         setLoading(true);
         try {
             const data = await getAllTenants();
-            setTenants(data);
+            
+            // Fetch activity for each tenant
+            const dataWithStats = await Promise.all(data.map(async (t) => {
+                const stats = await getTenantActivityStats(t.id);
+                return { ...t, ...stats };
+            }));
+            
+            setTenants(dataWithStats);
         } catch (err) {
             showToast("Failed to load tenants", "danger");
         } finally {
@@ -55,6 +62,18 @@ const SuperAdminDashboard = () => {
             showToast("Update failed", "danger");
         }
     };
+
+    const handleResetPassword = async (email) => {
+        if (!window.confirm(`Send password reset link to ${email}?`)) return;
+        try {
+            const { sendAdminPasswordReset } = await import('../../services/tenantService');
+            await sendAdminPasswordReset(email);
+            showToast(`Password reset link sent to ${email}`, "success");
+        } catch (err) {
+            showToast(err.message, "danger");
+        }
+    };
+
 
     return (
         <PageLayout
@@ -135,6 +154,7 @@ const SuperAdminDashboard = () => {
                                         <tr>
                                             <th>Business Name</th>
                                             <th>Tenant ID</th>
+                                            <th>Activity</th>
                                             <th>Status</th>
                                             <th>Actions</th>
                                         </tr>
@@ -150,20 +170,40 @@ const SuperAdminDashboard = () => {
                                                 </td>
                                                 <td className="is-vcentered is-family-monospace is-size-7">{t.id}</td>
                                                 <td className="is-vcentered">
+                                                    <div className="is-flex is-flex-direction-column">
+                                                        <span className="is-size-7 has-text-weight-bold">
+                                                            {t.totalTransactions || 0} Txns
+                                                        </span>
+                                                        <span className="is-size-7 has-text-grey" style={{ fontSize: '0.65rem' }}>
+                                                            {t.lastActive?.seconds ? new Date(t.lastActive.seconds * 1000).toLocaleDateString() : 'No activity'}
+                                                        </span>
+                                                    </div>
+                                                </td>
+                                                <td className="is-vcentered">
                                                     <span className={`tag ${t.status === 'active' ? 'is-success' : 'is-danger'}`}>
                                                         {t.status}
                                                     </span>
                                                 </td>
                                                 <td className="is-vcentered">
-                                                    <button
-                                                        className={`button is-small ${t.status === 'active' ? 'is-danger' : 'is-success'}`}
-                                                        onClick={() => handleToggleStatus(t.id, t.status)}
-                                                    >
-                                                        {t.status === 'active' ? 'Disable' : 'Enable'}
-                                                    </button>
+                                                    <div className="buttons">
+                                                        <button
+                                                            className={`button is-small ${t.status === 'active' ? 'is-danger' : 'is-success'}`}
+                                                            onClick={() => handleToggleStatus(t.id, t.status)}
+                                                        >
+                                                            {t.status === 'active' ? 'Disable' : 'Enable'}
+                                                        </button>
+                                                        <button
+                                                            className="button is-small is-warning is-light"
+                                                            onClick={() => handleResetPassword(t.owner_email)}
+                                                        >
+                                                            <span className="icon"><RefreshSquareBold size={14} /></span>
+                                                            <span>Reset PW</span>
+                                                        </button>
+                                                    </div>
                                                 </td>
                                             </tr>
                                         ))}
+
                                     </tbody>
                                 </table>
                             </div>

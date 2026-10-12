@@ -56,6 +56,11 @@ export default function POSCart({ saleType, goBack }) {
     // ── Fetch Invoices for Selected Customer (Returns only) ────
     useEffect(() => {
         const fetchInvoices = async () => {
+            // Clear immediately so a stale invoice list from a previous customer
+            // never lingers on screen while the new query is in flight (or if it fails).
+            setCustomerInvoices([]);
+            setSelectedInvoice(null);
+
             if (saleType === 'return' && selectedCustomer && tenantId) {
                 try {
                     const { collection, query, where, getDocs } = await import('firebase/firestore');
@@ -74,9 +79,6 @@ export default function POSCart({ saleType, goBack }) {
                 } catch (err) {
                     console.error("Error fetching customer invoices:", err);
                 }
-            } else {
-                setCustomerInvoices([]);
-                setSelectedInvoice(null);
             }
         };
         fetchInvoices();
@@ -213,6 +215,7 @@ export default function POSCart({ saleType, goBack }) {
                     customer_id: selectedCustomer ? selectedCustomer.value : null,
                     items_summary: itemsMeta,
                     items: cart.map(c => ({ id: c.id, name: c.name, price_cents: c.price_cents, quantity: c.quantity })),
+                    customDate: customTimestamp,
                     subtotal_cents: cartTotalCents
                 });
             } else {

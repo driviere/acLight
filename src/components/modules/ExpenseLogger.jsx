@@ -128,7 +128,8 @@ export default function ExpenseLogger() {
                     created_by: currentUser.uid,
                     vendor_name: selectedVendor.label,
                     items_summary: itemsDescription.trim() || undefined,
-                    invoice_date: Timestamp.fromDate(entryDateObj)
+                    invoice_date: Timestamp.fromDate(entryDateObj),
+                    customDate: Timestamp.fromDate(entryDateObj)
                 }
             );
 

@@ -1,16 +1,62 @@
-# React + Vite
+# Frampton's Delight — Bakery Ledger
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Accounting rigorous, user simple. A multi-tenant, double-entry accounting and point-of-sale app for small bakeries, built with React, Vite, Bulma and Firebase.
 
-Currently, two official plugins are available:
+## Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- **Double-entry journal** — every transaction posts balanced debit/credit lines; account balances update atomically via Firestore transactions.
+- **POS** — cash sales, credit sales/invoices and sales returns (optionally applied to a customer's open invoice).
+- **Expenses & purchases** — log vendor bills with dynamic expense categories.
+- **Outstanding monitor** — receivables (AR) and payables (AP), with partial payments.
+- **Ledger** — searchable transaction list with journal-line detail and void support (reverses balances, keeps the audit trail).
+- **Inventory & waste tracking**, items, bundles, customers and vendors.
+- **Reports and customer statements.**
+- **Admin console** — users, roles, chart of accounts, branding.
+- **Cents-only money handling** — integers throughout, no floats.
 
-## React Compiler
+See [docs/features.md](docs/features.md) and [docs/roadmap.md](docs/roadmap.md) for the full feature tracker and plans.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Tech stack
 
-## Expanding the ESLint configuration
+React 19 · Vite · React Router · Bulma · react-select · Firebase (Auth, Firestore, Hosting)
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+## Getting started
+
+```bash
+npm install
+npm run dev
+```
+
+Other scripts:
+
+```bash
+npm run build     # production build into dist/
+npm run preview   # preview the production build
+npm run lint      # run ESLint
+```
+
+## Firebase
+
+Firestore rules and indexes live in `firestore.rules` and `firestore.indexes.json`. Deploy them with:
+
+```bash
+firebase deploy --only firestore:rules,firestore:indexes
+```
+
+Deploy the app to Firebase Hosting with:
+
+```bash
+npm run build
+firebase deploy --only hosting
+```
+
+## Project structure
+
+```
+src/
+  components/   UI: pos, modules (ledger, expenses, reports), admin, auth, layout
+  contexts/     Auth and tenant providers
+  services/     journalService (double-entry engine), accountService, numberingService
+  utils/        moneyUtils (cents helpers)
+docs/           feature tracker and roadmap
+```

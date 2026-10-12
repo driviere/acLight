@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { collection, query, where, getDocs } from 'firebase/firestore';
+import { collection, query, where, getDocs, Timestamp } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { toDollarsData, toCents } from '../../utils/moneyUtils';
 import { processInvoicePayment } from '../../services/journalService';
@@ -16,6 +16,7 @@ const PaymentModal = ({ invoice, type, isActive, onClose, onSuccess }) => {
     const { tenantId } = useTenant();
     const [amount, setAmount] = useState('');
     const [refNo, setRefNo] = useState('');
+    const [paymentDate, setPaymentDate] = useState(new Date().toISOString().split('T')[0]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
 
@@ -23,6 +24,7 @@ const PaymentModal = ({ invoice, type, isActive, onClose, onSuccess }) => {
         if (isActive && invoice) {
             setAmount(toDollarsData(invoice.outstanding_cents));
             setRefNo('');
+            setPaymentDate(new Date().toISOString().split('T')[0]);
             setError('');
         }
     }, [isActive, invoice]);
@@ -37,7 +39,9 @@ const PaymentModal = ({ invoice, type, isActive, onClose, onSuccess }) => {
             const paymentCents = toCents(amount);
             if (paymentCents <= 0) throw new Error("Payment must be greater than zero.");
             if (paymentCents > invoice.outstanding_cents) throw new Error("Payment exceeds remaining balance.");
-            await processInvoicePayment(tenantId, invoice.id, paymentCents, type, { created_by: currentUser.uid, refNo });
+            const [y, m, d] = paymentDate.split('-');
+            const customDate = Timestamp.fromDate(new Date(y, m - 1, d, 12, 0, 0));
+            await processInvoicePayment(tenantId, invoice.id, paymentCents, type, { created_by: currentUser.uid, refNo, customDate });
             onSuccess();
         } catch (err) {
             console.error(err);
@@ -77,6 +81,18 @@ const PaymentModal = ({ invoice, type, isActive, onClose, onSuccess }) => {
                                     max={toDollarsData(invoice.outstanding_cents)}
                                     value={amount}
                                     onChange={(e) => setAmount(e.target.value)}
+                                    required
+                                />
+                            </div>
+                        </div>
+                        <div className="field">
+                            <label className="label">Payment Date</label>
+                            <div className="control">
+                                <input
+                                    className="input is-medium"
+                                    type="date"
+                                    value={paymentDate}
+                                    onChange={(e) => setPaymentDate(e.target.value)}
                                     required
                                 />
                             </div>

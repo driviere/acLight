@@ -246,7 +246,7 @@ export const processInvoicePayment = async (tenantId, journalId, paymentCents, p
             const paymentRef = doc(collection(db, 'tenants', tenantId, JOURNAL_COLLECTION));
             const entryType = paymentType === 'receive' ? 'payment' : 'payment_sent';
             transaction.set(paymentRef, {
-                date: Timestamp.now(),
+                date: metadata?.customDate || Timestamp.now(),
                 type: entryType,
                 status: 'paid',
                 ref_no: metadata.refNo || '',
@@ -325,7 +325,7 @@ export const processInvoiceReturn = async (tenantId, journalId, returnCents, met
             // 2. Create the return journal entry
             const returnRef = doc(collection(db, 'tenants', tenantId, JOURNAL_COLLECTION));
             transaction.set(returnRef, {
-                date: Timestamp.now(),
+                date: metadata?.customDate || Timestamp.now(),
                 type: 'sales_return',
                 status: 'paid', // A return is "settled" upon creation
                 ref_no: metadata.refNo || `RET-${Date.now().toString().slice(-6)}`,

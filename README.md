@@ -1,6 +1,6 @@
-# Frampton's Delight — Bakery Ledger
+# AC Lite (Accounting Lite)
 
-Accounting rigorous, user simple. A multi-tenant, double-entry accounting and point-of-sale app for small bakeries, built with React, Vite, Bulma and Firebase.
+Accounting made simple for small businesses. A multi-tenant, double-entry accounting and point-of-sale app for small businesses, built with React, Vite, Bulma and Firebase.
 
 ## Features
 

@@ -50,3 +50,6 @@ firebase.json
 *.njsproj
 *.sln
 *.sw?
+
+# Date-fix script backups (contain real ledger data)
+scripts/date-backup-*.json

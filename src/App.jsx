@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { TenantProvider, useTenant } from './contexts/TenantContext';
-import { HomeBold, SettingsBold, DatabaseBold, BillBold, TrashBinMinimalisticBold, LogoutBold, BookmarkBold, ShieldCheckBold } from 'solar-icon-set';
+import { HomeBold, SettingsBold, DatabaseBold, BillBold, TrashBinMinimalisticBold, LogoutBold, BookmarkBold, ShieldCheckBold, UsersGroupTwoRoundedBold, ChartSquareBold } from 'solar-icon-set';
 import Login from './components/auth/Login';
 import PrivateRoute from './components/auth/PrivateRoute';
 import AdminDashboard from './components/admin/AdminDashboard';
@@ -13,6 +13,8 @@ import WasteTracker from './components/modules/WasteTracker';
 import TopLevelBar from './components/modules/TopLevelBar';
 import POSDashboard from './components/pos/POSDashboard';
 import TransactionLedger from './components/modules/TransactionLedger';
+import CustomerStatements from './components/modules/CustomerStatements';
+import Reports from './components/modules/Reports';
 import SuperAdminDashboard from './components/admin/SuperAdminDashboard';
 import './App.css';
 
@@ -96,6 +98,8 @@ export const Navigation = () => {
           {!isSuperAdmin && navLink('/', 'Register (POS)', <HomeBold size={16} />)}
           {!isSuperAdmin && navLink('/outstanding', 'AR / AP', <DatabaseBold size={16} />)}
           {!isSuperAdmin && navLink('/ledger', 'Ledger', <BookmarkBold size={16} />)}
+          {!isSuperAdmin && navLink('/statements', 'Statements', <UsersGroupTwoRoundedBold size={16} />)}
+          {!isSuperAdmin && navLink('/reports', 'Reports', <ChartSquareBold size={16} />)}
           {!isSuperAdmin && navLink('/expenses', 'Expenses', <BillBold size={16} />)}
           {!isSuperAdmin && navLink('/spoilage', 'Spoilage', <TrashBinMinimalisticBold size={16} />)}
           {isAdmin && !isSuperAdmin && navLink('/admin', 'Admin', <SettingsBold size={16} />)}
@@ -187,6 +191,8 @@ function AppContent() {
           } />
           <Route path="/admin" element={<PrivateRoute requireAdmin={true}><AdminDashboard /></PrivateRoute>} />
           <Route path="/ledger" element={<PrivateRoute><TransactionLedger /></PrivateRoute>} />
+          <Route path="/statements" element={<PrivateRoute><CustomerStatements /></PrivateRoute>} />
+          <Route path="/reports" element={<PrivateRoute><Reports /></PrivateRoute>} />
           <Route path="/super-admin" element={
             <PrivateRoute requireSuperAdmin={true}>
               <SuperAdminDashboard />

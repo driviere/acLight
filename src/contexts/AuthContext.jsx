@@ -3,7 +3,7 @@ import { auth, db } from '../firebase';
 import {
     signInWithEmailAndPassword,
     signOut,
-    onAuthStateChanged
+    onAuthStateChanged,
 } from 'firebase/auth';
 import { doc, getDoc, collection, query, where, getDocs, setDoc, limit } from 'firebase/firestore';
 
@@ -65,7 +65,9 @@ export const AuthProvider = ({ children }) => {
                             setUserRole('admin');
                             setTenantId(invitedTenantId);
                         } else {
-                            setUserRole('staff');
+                            // Not invited — boot them out
+                            await signOut(auth);
+                            setUserRole(null);
                             setTenantId(null);
                         }
                     }

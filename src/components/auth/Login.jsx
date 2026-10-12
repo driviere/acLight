@@ -1,15 +1,23 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { LetterBold, LockPasswordBold, HandMoneyBold, ShieldCheckBold } from 'solar-icon-set';
+import { LetterBold, LockPasswordBold, HandMoneyBold } from 'solar-icon-set';
 import { db, auth } from '../../firebase';
-import { collection, getDocs, setDoc, doc } from 'firebase/firestore';
-import { isSignInWithEmailLink, signInWithEmailLink } from 'firebase/auth';
+import { collection, getDocs, setDoc, doc, getDoc, query, where, limit } from 'firebase/firestore';
+import {
+    isSignInWithEmailLink,
+    signInWithEmailLink,
+    sendPasswordResetEmail,
+    GoogleAuthProvider,
+    signInWithPopup,
+    signOut
+} from 'firebase/auth';
 
 export default function Login() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
+    const [info, setInfo] = useState('');
     const [loading, setLoading] = useState(false);
 
     const { login } = useAuth();
@@ -37,51 +45,92 @@ export default function Login() {
         }
     }, [navigate]);
 
-    const handleBootstrap = async () => {
-        if (!window.confirm("Bootstrap the system with a default super-admin? (admin@aclight.com / admin123)")) return;
-        setLoading(true);
-        try {
-            const usersSnap = await getDocs(collection(db, 'users'));
-            if (!usersSnap.empty) {
-                setError("System already initialized. Cannot bootstrap.");
-                setLoading(false);
-                return;
-            }
-            // Create user in Auth will likely fail here without being logged in, 
-            // but for this specific instruction we'll assume the user might exist or 
-            // we'll guide them to use a specific UID if they've already created one.
-            // A better way is to just set the first person who logs in to super_admin if no users exist.
-            setError("To bootstrap: Log in with any email, then I will grant that UID super_admin privileges if no other users exist.");
-        } catch (err) {
-            setError(err.message);
+    // Returns true if access granted, false if the user should be rejected.
+    // Handles the one-time super-admin bootstrap for a fresh database.
+    const checkAccess = async (user) => {
+        // Bootstrap: if no users exist yet, the first person becomes super_admin
+        const usersSnap = await getDocs(collection(db, 'users'));
+        if (usersSnap.empty) {
+            await setDoc(doc(db, 'users', user.uid), {
+                email: user.email,
+                role: 'super_admin',
+                createdAt: new Date()
+            });
+            return true;
         }
-        setLoading(false);
+
+        // Allow if a user document already exists for this account
+        const userDoc = await getDoc(doc(db, 'users', user.uid));
+        if (userDoc.exists()) return true;
+
+        // Allow if invited as a tenant owner (provisioning happens in AuthContext)
+        const inviteSnap = await getDocs(
+            query(collection(db, 'tenants'), where('owner_email', '==', user.email.toLowerCase()), limit(1))
+        );
+        if (!inviteSnap.empty) return true;
+
+        // Not invited — revoke the session immediately
+        await signOut(auth);
+        return false;
     };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
         try {
             setError('');
+            setInfo('');
             setLoading(true);
             const { user } = await login(email, password);
-
-            // Check if this is the first user ever
-            const usersSnap = await getDocs(collection(db, 'users'));
-            if (usersSnap.empty) {
-                await setDoc(doc(db, 'users', user.uid), {
-                    email: user.email,
-                    role: 'super_admin',
-                    createdAt: new Date()
-                });
-                setError("BOOTSTRAP SUCCESS: You have been granted Super-Admin privileges as the first user.");
+            const allowed = await checkAccess(user);
+            if (!allowed) {
+                setError('Access denied. Your account has not been invited to this application.');
+                return;
             }
-
             navigate('/');
         } catch (err) {
             setError('Failed to sign in. Please check your credentials.');
             console.error(err);
         }
         setLoading(false);
+    };
+
+    const handleGoogle = async () => {
+        try {
+            setError('');
+            setInfo('');
+            setLoading(true);
+            const provider = new GoogleAuthProvider();
+            const { user } = await signInWithPopup(auth, provider);
+            const allowed = await checkAccess(user);
+            if (!allowed) {
+                setError('Access denied. Your Google account has not been invited to this application.');
+                return;
+            }
+            navigate('/');
+        } catch (err) {
+            if (err.code !== 'auth/popup-closed-by-user') {
+                setError('Google sign-in failed. Please try again.');
+                console.error(err);
+            }
+        }
+        setLoading(false);
+    };
+
+    const handleForgotPassword = async () => {
+        const target = email.trim();
+        if (!target) {
+            setError('Enter your email address above, then click Forgot Password.');
+            return;
+        }
+        try {
+            setError('');
+            setInfo('');
+            await sendPasswordResetEmail(auth, target);
+            setInfo(`Password reset email sent to ${target}. Check your inbox.`);
+        } catch (err) {
+            setError('Could not send reset email. Check the address and try again.');
+            console.error(err);
+        }
     };
 
     return (
@@ -106,6 +155,11 @@ export default function Login() {
                         {error}
                     </div>
                 )}
+                {info && (
+                    <div className="notification is-success is-light mb-4" style={{ borderRadius: '10px' }}>
+                        {info}
+                    </div>
+                )}
 
                 <form onSubmit={handleSubmit}>
                     <div className="field mb-4">
@@ -125,7 +179,7 @@ export default function Login() {
                         </div>
                     </div>
 
-                    <div className="field mb-5">
+                    <div className="field mb-1">
                         <label className="label">Password</label>
                         <div className="control has-icons-left">
                             <input
@@ -142,6 +196,17 @@ export default function Login() {
                         </div>
                     </div>
 
+                    <div className="has-text-right mb-4">
+                        <button
+                            type="button"
+                            className="button is-ghost is-small p-0"
+                            style={{ color: '#4a90d9', fontSize: '0.8rem' }}
+                            onClick={handleForgotPassword}
+                        >
+                            Forgot password?
+                        </button>
+                    </div>
+
                     <button
                         className={`button is-primary is-fullwidth is-medium ${loading ? 'is-loading' : ''}`}
                         type="submit"
@@ -151,20 +216,32 @@ export default function Login() {
                         <span className="icon"><HandMoneyBold size={18} /></span>
                         <strong>Sign In to Ledger</strong>
                     </button>
-
-                    <div className="has-text-centered mt-5">
-                        <p className="is-size-7 has-text-grey mb-2">First time setup?</p>
-                        <button
-                            type="button"
-                            className="button is-ghost is-small"
-                            onClick={() => setError("First-User-Rule: The very first person to successfully log in to this fresh database will be automatically granted platform-level Super-Admin role.")}
-                            style={{ color: '#cbd5e0' }}
-                        >
-                            <span className="icon"><ShieldCheckBold size={14} /></span>
-                            <span>System Bootstrap Info</span>
-                        </button>
-                    </div>
                 </form>
+
+                <div className="is-flex is-align-items-center my-4" style={{ gap: '8px' }}>
+                    <hr style={{ flex: 1, margin: 0 }} />
+                    <span className="is-size-7 has-text-grey">or</span>
+                    <hr style={{ flex: 1, margin: 0 }} />
+                </div>
+
+                <button
+                    className={`button is-white is-fullwidth is-medium ${loading ? 'is-loading' : ''}`}
+                    type="button"
+                    disabled={loading}
+                    onClick={handleGoogle}
+                    style={{ height: '52px', borderRadius: '10px', border: '1px solid #e2e8f0', fontSize: '0.95rem', fontWeight: 600 }}
+                >
+                    <span className="icon mr-2">
+                        <svg width="18" height="18" viewBox="0 0 48 48">
+                            <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+                            <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
+                            <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
+                            <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+                            <path fill="none" d="M0 0h48v48H0z"/>
+                        </svg>
+                    </span>
+                    <span>Sign in with Google</span>
+                </button>
             </div>
         </div>
     );

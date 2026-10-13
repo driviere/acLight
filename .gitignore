@@ -60,3 +60,6 @@ serviceAccount*.json
 *.pem
 *.key
 .runtimeconfig.json
+
+# Firebase CLI local cache
+.firebase/

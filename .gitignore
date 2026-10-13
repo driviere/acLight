@@ -53,3 +53,10 @@ firebase.json
 
 # Date-fix script backups (contain real ledger data)
 scripts/date-backup-*.json
+
+# Credentials / service accounts
+serviceAccount*.json
+*-adminsdk-*.json
+*.pem
+*.key
+.runtimeconfig.json
